@@ -1,13 +1,11 @@
 // 보드게임 모음집 - 메인 화면 제어
 import { Net } from './net.js';
 import { $, $$, esc, avatar, toast, openModal, colorOf, beep } from './ui.js';
-import { CATEGORIES, GAMES } from './catalog.js';
-import { art, ICONS } from './art.js';
+import { CATEGORIES, GAMES, GENRES } from './catalog.js';
+import { thumb, thumbSrc } from './art.js';
+import { icon } from './icons.js';
 
 // ─── 기본 정보 ─────────────────────────────────────────────
-const THEME = {};
-CATEGORIES.forEach((c) => c.games.forEach((g) => { THEME[g] = c.id; }));
-const themeClass = (g) => `t-${THEME[g] || 'hot'}`;
 const playersText = (g) => (GAMES[g].min === GAMES[g].max ? `${GAMES[g].min}명` : `${GAMES[g].min}~${GAMES[g].max}명`);
 
 function getSid() {
@@ -39,7 +37,6 @@ const S = {
   view: null,
   chat: [],
   offset: 0,
-  homeTab: 'games',
   unreadLobby: 0,
   unreadRoom: 0,
   expectRoom: false,
@@ -88,8 +85,7 @@ function onMessage(m) {
     case 'lobby':
       S.lobby = { online: m.online, rooms: m.rooms, playing: m.playing, users: m.users };
       if (m.chat) S.lobbyChat = m.chat;
-      $('#online b').textContent = m.online;
-      updateLive(!!m.chat);
+      refreshLive(!!m.chat);
       break;
     case 'lchat':
       S.lobbyChat.push(m.msg);
@@ -177,6 +173,8 @@ function route() {
   const [page, id] = h.split('/');
   if (page === 'game' && GAMES[id]) return { page: 'game', id };
   if (page === 'room' && id) return { page: 'room', id: decodeURIComponent(id) };
+  if (page === 'games') return { page: 'games', id: GENRES[id] ? id : '' };
+  if (page === 'rooms' || page === 'community') return { page };
   return { page: 'home' };
 }
 
@@ -186,12 +184,18 @@ function render() {
   const r = route();
   document.body.dataset.page = r.page;
   if (r.page !== 'room') unmountGame();
+  clearTimeout(hero.timer);
+  const nav = r.page === 'game' ? 'games' : r.page;
+  $$('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === nav));
   if (r.page === 'home') renderHome();
+  else if (r.page === 'games') renderGames(r.id);
+  else if (r.page === 'rooms') renderRooms();
+  else if (r.page === 'community') renderCommunity();
   else if (r.page === 'game') renderGamePage(r.id);
   else if (r.page === 'room') {
     if (S.room && S.room.id === r.id) renderRoom();
     else {
-      $('#view').innerHTML = '<div class="empty" style="padding:80px 16px">방에 들어가는 중이에요…</div>';
+      $('#view').innerHTML = '<div class="empty" style="padding:120px 16px">방에 들어가는 중이에요…</div>';
       if (S.connected && S.me) {
         S.expectRoom = true;
         send({ t: 'join', id: r.id });
@@ -229,146 +233,330 @@ function nameModal(first = false) {
   });
 }
 
-// ─── 홈 ───────────────────────────────────────────────────
-function gameCard(g) {
+// ─── 공용 조각 ────────────────────────────────────────────
+const isExternal = (g) => !!GAMES[g]?.external;
+const isReady = (g) => isExternal(g) || !S.me || S.games.has(g);
+const genreOf = (g) => GENRES[GAMES[g].cat] || '';
+
+function badges(g) {
+  const m = GAMES[g];
+  return `${m.hot ? '<span class="bdg hot">HOT</span>' : ''}${m.badge ? `<span class="bdg vid">${icon('video')}${esc(m.badge)}</span>` : ''}${m.bots ? `<span class="bdg bot">${icon('bot')}봇</span>` : ''}`;
+}
+
+function gameCard(g, rank = 0) {
   const meta = GAMES[g];
-  const ready = !S.me || S.games.has(g);
+  const ready = isReady(g);
   const n = S.lobby.playing[g] || 0;
-  return `<a class="gcard ${themeClass(g)} ${ready ? '' : 'soon'}" href="#/game/${g}" data-game="${g}">
-    <div class="gname">${esc(meta.name)}${meta.hot ? '<span class="badge hot">HOT</span>' : ''}</div>
-    <div class="gmeta">${playersText(g)} · ${meta.time}</div>
-    <div class="gart">${art(g)}</div>
-    ${ready ? `<div class="glive" data-live="${g}" ${n ? '' : 'hidden'}><i></i><span>${n}명 참여 중</span></div>` : '<div class="soon-tag">준비 중</div>'}
+  return `<a class="gcard ${ready ? '' : 'soon'}" href="#/game/${g}" data-game="${g}">
+    <div class="g-thumb">${thumb(g)}
+      <div class="g-badges">${badges(g)}</div>
+      ${rank ? `<span class="g-rank">${rank}</span>` : ''}
+      <span class="g-play">${icon('play')}</span>
+      ${ready ? `<span class="g-live" data-live="${g}" ${n ? '' : 'hidden'}><i></i><span>${n}명 플레이 중</span></span>` : '<span class="g-live soon-tag">준비 중</span>'}
+    </div>
+    <div class="g-info">
+      <div class="g-name">${esc(meta.name)}</div>
+      <div class="g-meta"><span>${esc(genreOf(g))}</span><span>${playersText(g)}</span><span>${meta.time}</span></div>
+    </div>
   </a>`;
 }
 
-function renderHome() {
-  $('#view').innerHTML = `
-  <div class="home" data-tab="${S.homeTab}">
-    <div class="catalog">
-      <div id="room-banner"></div>
-      <section class="hero">
-        <svg class="hero-deco" viewBox="0 0 260 160" aria-hidden="true">
-          <g opacity=".95">
-            <rect x="150" y="30" width="54" height="54" rx="12" fill="#fff" transform="rotate(14 177 57)"/>
-            <circle cx="166" cy="48" r="5" fill="#3558f0"/><circle cx="190" cy="66" r="5" fill="#3558f0"/><circle cx="178" cy="57" r="5" fill="#3558f0"/>
-            <rect x="200" y="84" width="44" height="44" rx="10" fill="#ffd43b" transform="rotate(-12 222 106)"/>
-            <circle cx="214" cy="98" r="4.5" fill="#7a4d00"/><circle cx="230" cy="114" r="4.5" fill="#7a4d00"/>
-            <circle cx="120" cy="108" r="18" fill="#ff6b6b"/><circle cx="120" cy="108" r="11" fill="#ff8787"/>
-            <path d="M92 40 l10 -20 l10 20 z" fill="#63e6be"/>
-          </g>
-        </svg>
-        <h1>친구들과 함께하는 보드게임 한 판!</h1>
-        <p>설치 없이 휴대폰과 컴퓨터에서 바로. 방을 만들고 링크를 보내 친구를 초대해 보세요.</p>
-        <div class="hero-actions">
-          <a class="btn white sm" href="#/game/liar">🔥 라이어 게임 하기</a>
-          <button class="btn sm" style="background:rgba(255,255,255,.15);color:#fff;border-color:transparent" id="hero-rooms" type="button">열린 방 보기</button>
-        </div>
-      </section>
-      ${CATEGORIES.map((c) => `
-        <section class="cat">
-          <div class="cat-head"><h2>${esc(c.name)}</h2><span>${esc(c.desc)}</span></div>
-          <div class="cards">${c.games.map(gameCard).join('')}</div>
-        </section>`).join('')}
-    </div>
-    <aside class="side">
-      <div class="panel rooms-panel">
-        <div class="panel-head"><h3>열린 방</h3><select class="input" id="room-filter" style="width:auto;min-height:32px;font-size:13px;padding-left:10px">
-          <option value="">모든 게임</option>${Object.keys(GAMES).map((g) => `<option value="${g}" ${S.roomFilter === g ? 'selected' : ''}>${esc(GAMES[g].name)}</option>`).join('')}
-        </select></div>
-        <div class="room-list" id="room-list"></div>
-        <form class="join-no" id="join-no"><input class="input" inputmode="numeric" placeholder="방 번호로 입장" maxlength="4"><button class="btn sm" type="submit">입장</button></form>
-      </div>
-      <div class="panel lobby-chat-panel">
-        <div class="panel-head"><h3>로비 채팅</h3><span class="small muted" id="lobby-users"></span></div>
-        <div class="chat lobby-chat">
-          <div class="chat-log" id="lobby-log"></div>
-          <form class="chat-form" id="lobby-form"><input class="input" maxlength="200" placeholder="모두에게 인사해 보세요!" enterkeyhint="send" autocomplete="off"><button class="btn primary" type="submit">전송</button></form>
-        </div>
-      </div>
-    </aside>
-    <nav class="tabbar">
-      <button type="button" data-tab="games" class="${S.homeTab === 'games' ? 'on' : ''}"><span class="ti">🎲</span>게임</button>
-      <button type="button" data-tab="rooms" class="${S.homeTab === 'rooms' ? 'on' : ''}"><span class="ti">🚪</span>열린 방</button>
-      <button type="button" data-tab="chat" class="${S.homeTab === 'chat' ? 'on' : ''}"><span class="ti">💬</span>채팅<span class="nbadge" id="lobby-badge" hidden></span></button>
-    </nav>
-  </div>`;
-  $('#room-filter').onchange = (e) => { S.roomFilter = e.target.value; renderRoomList(); };
-  $('#join-no').onsubmit = (e) => {
-    e.preventDefault();
-    const v = $('input', e.target).value.trim();
-    if (!v) return;
-    S.expectRoom = true;
-    send({ t: 'join', id: v });
-  };
-  $('#lobby-form').onsubmit = (e) => {
-    e.preventDefault();
-    const inp = $('input', e.target);
-    const v = inp.value.trim();
-    if (!v) return;
-    send({ t: 'lchat', text: v });
-    inp.value = '';
-  };
-  $('#hero-rooms').onclick = () => setHomeTab(window.innerWidth <= 980 ? 'rooms' : S.homeTab, true);
-  $$('.tabbar button').forEach((b) => { b.onclick = () => setHomeTab(b.dataset.tab); });
-  renderLobbyChat();
-  updateLive(false);
-  updateRoomBanner();
+function secHead(title, sub, more) {
+  return `<div class="sec-head"><div><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</div>${more ? `<a class="more" href="${more}">전체보기${icon('next')}</a>` : ''}</div>`;
 }
 
-function setHomeTab(tab, scroll = false) {
-  S.homeTab = tab;
-  const home = $('.home');
-  if (!home) return;
-  home.dataset.tab = tab;
-  $$('.tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-  if (tab === 'chat') {
-    S.unreadLobby = 0;
-    updateLobbyBadge();
-    const log = $('#lobby-log');
-    if (log) log.scrollTop = log.scrollHeight;
-  }
-  if (scroll) $('.rooms-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  else window.scrollTo(0, 0);
-}
-
-function roomRow(r) {
+function roomCard(r) {
   const meta = GAMES[r.game];
-  return `<button type="button" class="room-row" data-room="${esc(r.id)}" data-status="${r.status}">
-    <span class="ricon" style="background:${THEME[r.game] === 'rec' ? '#e0f7f6' : THEME[r.game] === 'more' ? '#eaf6df' : '#e8edff'}">${ICONS[r.game] || '🎲'}</span>
-    <span class="rmain"><span class="rtitle">${esc(r.title)}</span>
-      <span class="rsub"><span>#${r.no}</span><span>${esc(meta?.name || '')}</span>${r.status === 'playing' ? '<span class="tag play">게임 중</span>' : '<span class="tag wait">대기 중</span>'}</span></span>
-    <span class="rcount">${r.status === 'playing' ? `👀 ${r.members}` : `${r.seats}/${r.max}`}</span>
+  const playing = r.status === 'playing';
+  return `<button type="button" class="rcard" data-room="${esc(r.id)}" data-status="${r.status}">
+    <span class="rc-thumb">${thumb(r.game)}<span class="rc-state ${playing ? 'play' : 'wait'}">${playing ? '게임 중' : '대기 중'}</span></span>
+    <span class="rc-body">
+      <span class="rc-game">${esc(meta?.name || '')}<em>#${r.no}</em></span>
+      <span class="rc-title">${esc(r.title)}</span>
+      <span class="rc-foot"><span>${icon('crown')}${esc(r.host || '')}</span><b>${playing ? `${icon('eye')}${r.members}` : `${icon('users')}${r.seats}/${r.max}`}</b></span>
+    </span>
   </button>`;
 }
 
-function renderRoomList() {
-  const box = $('#room-list');
-  if (!box) return;
-  const rooms = S.lobby.rooms.filter((r) => !S.roomFilter || r.game === S.roomFilter);
-  box.innerHTML = rooms.length ? rooms.map(roomRow).join('') : '<div class="empty">아직 열린 방이 없어요.<br>게임을 골라 첫 방을 만들어 보세요!</div>';
+function bindRoomJoin(box) {
   box.onclick = (e) => {
-    const b = e.target.closest('.room-row');
+    const b = e.target.closest('[data-room]');
     if (!b) return;
     S.expectRoom = true;
     send({ t: 'join', id: b.dataset.room, watch: b.dataset.status === 'playing' });
   };
 }
 
-function updateLive(chatReset) {
+function pageHead(title, en, desc) {
+  return `<section class="page-head"><div class="wrap"><span class="ph-en">${esc(en)}</span><h1>${esc(title)}</h1>${desc ? `<p>${esc(desc)}</p>` : ''}</div></section>`;
+}
+
+// ─── 홈 ───────────────────────────────────────────────────
+const SLIDES = [
+  { id: 'avalon', eyebrow: 'NEW · 화상 추리 게임', title: '레지스탕스 아발론', desc: '카메라로 서로의 얼굴을 보며 속이고 추리하는 원탁의 밤.\n사회자 음성 진행과 CPU 기사까지, 5~10명이 함께해요.' },
+  { id: 'liar', eyebrow: 'HOT · 파티 게임', title: '라이어 게임', desc: '제시어를 모르는 단 한 사람.\n한 마디 설명으로 정체를 숨기고, 거짓말쟁이를 찾아내세요.' },
+  { id: 'mafia', eyebrow: 'HOT · 심리전', title: '마피아', desc: '밤에는 숨고, 낮에는 속여라.\n최대 12명이 함께하는 실시간 추리 심리전.' },
+  { id: 'rummy', eyebrow: '봇과 연습 가능', title: '러미 타일', desc: '같은 색 연속 숫자, 다른 색 같은 숫자.\n타일을 가장 먼저 모두 내려놓는 사람이 승리해요.' },
+  { id: 'drawguess', eyebrow: '그림 · 단어', title: '그림 맞히기', desc: '그리는 사람도, 맞히는 사람도 웃음이 터지는\n실시간 그림 퀴즈. 휴대폰으로도 쓱쓱.' },
+];
+const hero = { i: 0, timer: null, paused: false };
+
+function slideVisual(s) {
+  if (s.id === 'avalon') {
+    const roles = ['percival', 'merlin', 'assassin', 'morgana'];
+    return `<div class="s-bg s-bg-avalon"><img src="/avalon/assets/avalon-cover.png" alt="" decoding="async"></div>
+      <div class="s-roles">${roles.map((r, i) => `<img class="role r${i}" src="/avalon/assets/roles/${r}.jpg" alt="" decoding="async">`).join('')}</div>`;
+  }
+  const src = thumbSrc(s.id);
+  return `<div class="s-bg"><img class="s-blur" src="${src}" alt="" decoding="async"><img class="s-main" src="${src}" alt="" decoding="async"></div>`;
+}
+
+function heroHTML() {
+  return `<section class="hero" id="hero" style="--dur:6.5s">
+    <div class="slides">${SLIDES.map((s, i) => `
+      <div class="slide ${i === hero.i ? 'on' : ''}" data-i="${i}">
+        ${slideVisual(s)}
+        <div class="s-shade"></div>
+        <div class="wrap s-copy">
+          <span class="s-eyebrow">${esc(s.eyebrow)}</span>
+          <h2 class="s-title">${esc(s.title)}</h2>
+          <span class="s-en">${esc(GAMES[s.id].en)}</span>
+          <p class="s-desc">${esc(s.desc).replace(/\n/g, '<br>')}</p>
+          <div class="s-cta">
+            <a class="btn cta" href="${isExternal(s.id) ? GAMES[s.id].external : `#/game/${s.id}`}" data-play="${s.id}">${icon('play')}지금 플레이</a>
+            <a class="btn cta-ghost" href="#/game/${s.id}">게임 정보</a>
+          </div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="wrap hero-nav">
+      <div class="hn-tabs">${SLIDES.map((s, i) => `<button type="button" class="hn-tab ${i === hero.i ? 'on' : ''}" data-i="${i}"><span>${esc(s.title)}</span><i></i></button>`).join('')}</div>
+      <div class="hn-arrows"><button type="button" class="hn-prev" aria-label="이전">${icon('back')}</button><span class="hn-count"><b>${hero.i + 1}</b> / ${SLIDES.length}</span><button type="button" class="hn-next" aria-label="다음">${icon('next')}</button></div>
+    </div>
+  </section>`;
+}
+
+function heroGo(i) {
+  const el = $('#hero');
+  if (!el) return;
+  hero.i = (i + SLIDES.length) % SLIDES.length;
+  $$('.slide', el).forEach((s) => s.classList.toggle('on', Number(s.dataset.i) === hero.i));
+  $$('.hn-tab', el).forEach((t) => {
+    t.classList.remove('on');
+    if (Number(t.dataset.i) === hero.i) {
+      void t.offsetWidth; // 진행 막대 애니메이션 다시 시작
+      t.classList.add('on');
+    }
+  });
+  $('.hn-count b', el).textContent = hero.i + 1;
+  heroSchedule();
+}
+
+function heroSchedule() {
+  clearTimeout(hero.timer);
+  if (!$('#hero') || hero.paused) return;
+  hero.timer = setTimeout(() => heroGo(hero.i + 1), 6500);
+}
+
+function bindHero() {
+  const el = $('#hero');
+  $$('.hn-tab', el).forEach((t) => { t.onclick = () => heroGo(Number(t.dataset.i)); });
+  $('.hn-prev', el).onclick = () => heroGo(hero.i - 1);
+  $('.hn-next', el).onclick = () => heroGo(hero.i + 1);
+  el.onmouseenter = () => { hero.paused = true; el.classList.add('paused'); clearTimeout(hero.timer); };
+  el.onmouseleave = () => { hero.paused = false; el.classList.remove('paused'); heroGo(hero.i); };
+  let sx = null;
+  el.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+  el.addEventListener('touchend', (e) => {
+    if (sx == null) return;
+    const dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 50) heroGo(hero.i + (dx < 0 ? 1 : -1));
+    sx = null;
+  });
+  heroSchedule();
+}
+
+function renderHome() {
+  const popular = ['liar', 'mafia', 'avalon', 'drawguess', 'rummy', 'yacht', 'omok', 'onecard'];
+  $('#view').innerHTML = `
+  <div class="home">
+    ${heroHTML()}
+    <div class="wrap">
+      <div id="room-banner"></div>
+      <section class="sec">
+        ${secHead('인기 게임', '지금 가장 많이 플레이하는 게임', '#/games')}
+        <div class="cards cards-rank">${popular.map((g, i) => gameCard(g, i + 1)).join('')}</div>
+      </section>
+      <section class="sec">
+        <div class="sec-head"><div><h2>지금 열린 방 <span class="count" id="room-count"></span></h2><p>바로 들어가서 함께 플레이하세요</p></div>
+          <div class="sec-tools"><form class="join-no" id="join-no">${icon('hash')}<input class="input" inputmode="numeric" placeholder="방 번호" maxlength="4" aria-label="방 번호"><button class="btn sm dark" type="submit">입장</button></form>
+          <a class="more" href="#/rooms">전체보기${icon('next')}</a></div></div>
+        <div class="room-strip" id="home-rooms"></div>
+      </section>
+      <section class="sec">
+        ${secHead('더 많은 게임', '추리 · 전략 · 순발력, 취향대로 골라 보세요', '#/games')}
+        <div class="cards">${CATEGORIES.flatMap((c) => c.games).filter((g) => !popular.includes(g)).map((g) => gameCard(g)).join('')}</div>
+      </section>
+      <section class="sec">
+        ${secHead('커뮤니티', '접속한 사람들과 자유롭게 이야기해요', '#/community')}
+        <div class="community-grid">
+          <div class="panel chat-panel">${lobbyChatHTML('short')}</div>
+          <div class="panel users-panel"><div class="panel-head"><h3>접속자</h3><span class="small muted" id="lobby-users"></span></div><div class="user-list" id="user-list"></div></div>
+        </div>
+      </section>
+    </div>
+  </div>`;
+  bindHero();
+  bindJoinNo();
+  bindLobbyChat();
+  renderLobbyChat();
+  refreshLive();
+  updateRoomBanner();
+}
+
+function bindJoinNo() {
+  const f = $('#join-no');
+  if (!f) return;
+  f.onsubmit = (e) => {
+    e.preventDefault();
+    const v = $('input', f).value.trim();
+    if (!v) return;
+    S.expectRoom = true;
+    send({ t: 'join', id: v });
+  };
+}
+
+// ─── 전체 게임 ────────────────────────────────────────────
+function renderGames(genre) {
+  const list = CATEGORIES.flatMap((c) => c.games).filter((g) => !genre || GAMES[g].cat === genre);
+  $('#view').innerHTML = `
+  ${pageHead('전체 게임', 'ALL GAMES', `${Object.keys(GAMES).length}개의 게임을 설치 없이 바로 플레이하세요.`)}
+  <div class="wrap page-body">
+    <div id="room-banner"></div>
+    <div class="chips" role="tablist">
+      <a class="chip ${genre ? '' : 'on'}" href="#/games">전체</a>
+      ${Object.entries(GENRES).map(([k, v]) => `<a class="chip ${genre === k ? 'on' : ''}" href="#/games/${k}">${esc(v)}</a>`).join('')}
+    </div>
+    <div class="cards">${list.map((g) => gameCard(g)).join('')}</div>
+  </div>`;
+  refreshLive();
+  updateRoomBanner();
+}
+
+// ─── 열린 방 ──────────────────────────────────────────────
+function renderRooms() {
+  const games = Object.keys(GAMES).filter((g) => !isExternal(g));
+  $('#view').innerHTML = `
+  ${pageHead('열린 방', 'OPEN ROOMS', '대기 중인 방에 참가하거나, 진행 중인 게임을 관전할 수 있어요.')}
+  <div class="wrap page-body">
+    <div id="room-banner"></div>
+    <div class="rooms-tools">
+      <div class="chips">
+        <button type="button" class="chip ${S.roomFilter ? '' : 'on'}" data-filter="">전체</button>
+        ${games.map((g) => `<button type="button" class="chip ${S.roomFilter === g ? 'on' : ''}" data-filter="${g}">${esc(GAMES[g].name)}</button>`).join('')}
+      </div>
+      <form class="join-no" id="join-no">${icon('hash')}<input class="input" inputmode="numeric" placeholder="방 번호로 입장" maxlength="4" aria-label="방 번호"><button class="btn sm dark" type="submit">입장</button></form>
+    </div>
+    <div class="room-grid" id="room-list"></div>
+  </div>`;
+  $('.rooms-tools .chips').onclick = (e) => {
+    const c = e.target.closest('[data-filter]');
+    if (!c) return;
+    S.roomFilter = c.dataset.filter;
+    $$('.rooms-tools .chip').forEach((x) => x.classList.toggle('on', x === c));
+    renderRoomList();
+  };
+  bindJoinNo();
+  refreshLive();
+  updateRoomBanner();
+}
+
+function renderRoomList() {
+  const box = $('#room-list');
+  if (box) {
+    const rooms = S.lobby.rooms.filter((r) => !S.roomFilter || r.game === S.roomFilter);
+    box.innerHTML = rooms.length ? rooms.map(roomCard).join('')
+      : `<div class="empty-box">${icon('door')}<b>아직 열린 방이 없어요</b><span>게임을 골라 첫 방을 만들어 보세요!</span>${S.roomFilter ? `<a class="btn dark sm" href="#/game/${S.roomFilter}">${esc(GAMES[S.roomFilter].name)} 방 만들기</a>` : '<a class="btn dark sm" href="#/games">게임 고르기</a>'}</div>`;
+    bindRoomJoin(box);
+  }
+  const strip = $('#home-rooms');
+  if (strip) {
+    const rooms = S.lobby.rooms.slice(0, 8);
+    strip.innerHTML = rooms.length ? rooms.map(roomCard).join('')
+      : `<div class="empty-box">${icon('door')}<b>아직 열린 방이 없어요</b><span>게임을 골라 첫 방을 만들어 보세요. 링크로 친구를 초대할 수 있어요.</span></div>`;
+    bindRoomJoin(strip);
+  }
+  const cnt = $('#room-count');
+  if (cnt) cnt.textContent = S.lobby.rooms.length || '';
+}
+
+// ─── 커뮤니티 ─────────────────────────────────────────────
+function lobbyChatHTML(size = '') {
+  return `<div class="chat lobby-chat ${size}">
+    <div class="panel-head"><h3>로비 채팅</h3><span class="live-dot"><i></i>LIVE</span></div>
+    <div class="chat-log" id="lobby-log"></div>
+    <form class="chat-form" id="lobby-form"><input class="input" maxlength="200" placeholder="모두에게 인사해 보세요!" enterkeyhint="send" autocomplete="off"><button class="btn primary" type="submit" aria-label="전송">${icon('send')}</button></form>
+  </div>`;
+}
+
+function bindLobbyChat() {
+  const f = $('#lobby-form');
+  if (!f) return;
+  f.onsubmit = (e) => {
+    e.preventDefault();
+    const inp = $('input', f);
+    const v = inp.value.trim();
+    if (!v) return;
+    send({ t: 'lchat', text: v });
+    inp.value = '';
+  };
+}
+
+function renderCommunity() {
+  S.unreadLobby = 0;
+  updateLobbyBadge();
+  $('#view').innerHTML = `
+  ${pageHead('커뮤니티', 'COMMUNITY', '같이 할 사람을 구하거나 자유롭게 이야기해요. 욕설과 도배는 삼가 주세요.')}
+  <div class="wrap page-body">
+    <div id="room-banner"></div>
+    <div class="community-grid tall">
+      <div class="panel chat-panel">${lobbyChatHTML()}</div>
+      <div class="panel users-panel"><div class="panel-head"><h3>접속자</h3><span class="small muted" id="lobby-users"></span></div><div class="user-list" id="user-list"></div></div>
+    </div>
+  </div>`;
+  bindLobbyChat();
+  renderLobbyChat();
+  refreshLive();
+  updateRoomBanner();
+}
+
+function renderUsers() {
+  const box = $('#user-list');
+  if (!box) return;
+  const users = [...S.lobby.users].sort((a, b) => (a.uid === S.me?.uid ? -1 : b.uid === S.me?.uid ? 1 : 0));
+  box.innerHTML = users.length ? users.map((u) => `<div class="user-row">${avatar(u.uid, u.name, 'sm')}<span class="un">${esc(u.name)}</span>${u.uid === S.me?.uid ? '<span class="tag me">나</span>' : ''}<span class="ug">${u.game && GAMES[u.game] ? `${esc(GAMES[u.game].name)}` : '로비'}</span></div>`).join('')
+    : '<div class="empty">접속자가 없어요.</div>';
+}
+
+// 실시간 수치 갱신 (접속자 수, 플레이 인원, 방 목록 등)
+function refreshLive(chatReset = false) {
   $('#online b').textContent = S.lobby.online;
   for (const el of $$('[data-live]')) {
     const n = S.lobby.playing[el.dataset.live] || 0;
     el.hidden = !n;
-    $('span', el).textContent = `${n}명 참여 중`;
+    $('span', el).textContent = `${n}명 플레이 중`;
   }
   $$('.gcard').forEach((c) => {
-    const ready = S.games.has(c.dataset.game);
-    if (ready === c.classList.contains('soon') && S.me) c.outerHTML = gameCard(c.dataset.game);
+    const ready = isReady(c.dataset.game);
+    if (ready === c.classList.contains('soon')) {
+      const rank = $('.g-rank', c)?.textContent;
+      c.outerHTML = gameCard(c.dataset.game, Number(rank) || 0);
+    }
   });
   renderRoomList();
+  renderUsers();
   const lu = $('#lobby-users');
-  if (lu) lu.textContent = `${S.lobby.online}명 접속 중`;
+  if (lu) lu.textContent = `${S.lobby.online}명`;
   if (chatReset) renderLobbyChat();
   const gr = $('#gp-rooms');
   if (gr) renderGameRooms(gr.dataset.game);
@@ -383,28 +571,28 @@ function chatLine(msg, mine) {
 function renderLobbyChat() {
   const log = $('#lobby-log');
   if (!log) return;
-  log.innerHTML = S.lobbyChat.length ? S.lobbyChat.map((m) => chatLine(m, m.uid === S.me?.uid)).join('') : '<div class="chat-line sys">로비에 오신 걸 환영해요! 👋</div>';
+  log.innerHTML = S.lobbyChat.length ? S.lobbyChat.map((m) => chatLine(m, m.uid === S.me?.uid)).join('') : '<div class="chat-line sys">로비에 오신 걸 환영해요!</div>';
   log.scrollTop = log.scrollHeight;
 }
 
 function appendLobbyChat(msg) {
+  if (route().page !== 'community' && msg.uid !== S.me?.uid) {
+    S.unreadLobby++;
+    updateLobbyBadge();
+  }
   const log = $('#lobby-log');
   if (!log) return;
   const stick = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
   log.insertAdjacentHTML('beforeend', chatLine(msg, msg.uid === S.me?.uid));
   while (log.children.length > 100) log.firstChild.remove();
-  if (stick) log.scrollTop = log.scrollHeight;
-  if (S.homeTab !== 'chat' && window.innerWidth <= 980 && msg.uid !== S.me?.uid) {
-    S.unreadLobby++;
-    updateLobbyBadge();
-  }
+  if (stick || msg.uid === S.me?.uid) log.scrollTop = log.scrollHeight;
 }
 
 function updateLobbyBadge() {
-  const b = $('#lobby-badge');
-  if (!b) return;
-  b.hidden = !S.unreadLobby;
-  b.textContent = S.unreadLobby > 99 ? '99+' : S.unreadLobby;
+  for (const b of $$('[data-unread]')) {
+    b.hidden = !S.unreadLobby;
+    b.textContent = S.unreadLobby > 99 ? '99+' : S.unreadLobby;
+  }
 }
 
 function updateRoomBanner() {
@@ -414,9 +602,9 @@ function updateRoomBanner() {
     box.innerHTML = '';
     return;
   }
-  box.innerHTML = `<div class="panel" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:16px;border:2px solid var(--brand)">
-    <span style="font-size:22px">${ICONS[S.room.game] || '🎲'}</span>
-    <div style="flex:1;min-width:0"><b>${esc(GAMES[S.room.game].name)}</b> <span class="muted small">#${S.room.no} ${esc(S.room.title)}</span><div class="small muted">${S.room.status === 'playing' ? '게임이 진행 중이에요!' : '참여 중인 방이 있어요.'}</div></div>
+  box.innerHTML = `<div class="room-banner">
+    <span class="rb-thumb">${thumb(S.room.game)}</span>
+    <div class="rb-main"><b>${esc(GAMES[S.room.game].name)}</b> <span class="muted small">#${S.room.no} ${esc(S.room.title)}</span><div class="small rb-sub">${S.room.status === 'playing' ? '게임이 진행 중이에요!' : '참여 중인 방이 있어요.'}</div></div>
     <a class="btn primary sm" href="#/room/${S.room.id}">돌아가기</a><button class="btn sm" type="button" id="banner-leave">나가기</button></div>`;
   $('#banner-leave').onclick = () => send({ t: 'leave' });
 }
@@ -424,32 +612,54 @@ function updateRoomBanner() {
 // ─── 게임 소개 페이지 ─────────────────────────────────────
 function renderGamePage(g) {
   const meta = GAMES[g];
-  const ready = !S.me || S.games.has(g);
+  const ready = isReady(g);
+  const ext = isExternal(g);
+  const related = CATEGORIES.flatMap((c) => c.games).filter((x) => x !== g && GAMES[x].cat === meta.cat).slice(0, 4);
   $('#view').innerHTML = `
   <div class="gpage">
-    <a class="gp-back" href="#/">← 게임 목록</a>
-    <div id="room-banner"></div>
-    <section class="gp-hero ${themeClass(g)}">
-      <div class="gp-art">${art(g)}</div>
-      <h1>${esc(meta.name)} ${meta.hot ? '<span class="badge hot">HOT</span>' : ''}</h1>
-      <p class="gp-short">${esc(meta.short)}</p>
-      <div class="gp-meta"><span>👥 ${playersText(g)}</span><span>⏱ 약 ${meta.time}</span>${meta.bots ? '<span>🤖 봇과 연습 가능</span>' : ''}</div>
-      <div class="gp-actions">
-        ${ready ? `<button class="btn white lg" type="button" id="quick">⚡ 빠른 시작</button>
-        <button class="btn lg" type="button" id="create" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.3)">방 만들기</button>`
-    : '<button class="btn white lg" type="button" disabled>곧 열려요!</button>'}
+    <section class="gp-hero">
+      ${slideVisual({ id: g })}
+      <div class="s-shade"></div>
+      <div class="wrap gp-copy">
+        <nav class="crumb"><a href="#/">홈</a>${icon('next')}<a href="#/games/${meta.cat}">${esc(genreOf(g))}</a></nav>
+        <div class="g-badges static">${badges(g)}</div>
+        <h1>${esc(meta.name)}</h1>
+        <span class="s-en">${esc(meta.en)}</span>
+        <p class="gp-short">${esc(meta.short)}</p>
+        <div class="gp-meta"><span>${icon('users')}${playersText(g)}</span><span>${icon('clock')}약 ${meta.time}</span>${meta.bots ? `<span>${icon('bot')}봇과 연습</span>` : ''}${ext ? `<span>${icon('video')}화상 · 음성</span>` : ''}</div>
+        <div class="gp-actions">
+          ${ext ? `<a class="btn cta lg" href="${meta.external}">${icon('play')}입장하기</a><span class="gate-note" id="gate-note"></span>`
+    : ready ? `<button class="btn cta lg" type="button" id="quick">${icon('bolt')}빠른 시작</button>
+        <button class="btn cta-ghost lg" type="button" id="create">${icon('plus')}방 만들기</button>`
+      : '<button class="btn cta lg" type="button" disabled>곧 열려요!</button>'}
+        </div>
       </div>
     </section>
-    <div class="gp-body">
-      <div class="panel"><div class="panel-head"><h3>게임 방법</h3></div><ol class="rules">${meta.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol></div>
-      <div class="panel"><div class="panel-head"><h3>${esc(meta.name)} 방 목록</h3></div><div class="room-list" id="gp-rooms" data-game="${g}"></div></div>
+    <div class="wrap gp-body">
+      <div class="gp-main">
+        <div class="panel"><div class="panel-head"><h3>게임 방법</h3></div><ol class="rules">${meta.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol></div>
+      </div>
+      <aside class="gp-side">
+        <div class="panel info-table">
+          <div class="panel-head"><h3>게임 정보</h3></div>
+          <dl><dt>장르</dt><dd>${esc(genreOf(g))}</dd><dt>인원</dt><dd>${playersText(g)}</dd><dt>플레이 시간</dt><dd>약 ${meta.time}</dd><dt>봇 연습</dt><dd>${meta.bots ? '가능' : '불가'}</dd>${ext ? '<dt>필요</dt><dd>카메라 · 마이크 (선택)</dd>' : ''}</dl>
+        </div>
+        ${ext ? '' : `<div class="panel"><div class="panel-head"><h3>방 목록</h3><span class="small muted">${esc(meta.name)}</span></div><div class="room-list" id="gp-rooms" data-game="${g}"></div></div>`}
+      </aside>
     </div>
+    ${related.length ? `<div class="wrap"><section class="sec">${secHead('비슷한 게임', genreOf(g), `#/games/${meta.cat}`)}<div class="cards">${related.map((x) => gameCard(x)).join('')}</div></section></div>` : ''}
   </div>`;
-  if (ready) {
+  if (ext) {
+    fetch('/avalon/api/site-status', { cache: 'no-store' }).then((r) => r.json()).then((d) => {
+      const n = $('#gate-note');
+      if (n && d.locked) n.innerHTML = `${icon('lock')}지금은 관리자가 열어 둔 시간에만 입장할 수 있어요`;
+    }).catch(() => {});
+  } else if (ready) {
     $('#quick').onclick = () => { S.expectRoom = true; send({ t: 'quick', game: g }); };
     $('#create').onclick = () => createRoomModal(g);
   }
   renderGameRooms(g);
+  refreshLive();
   updateRoomBanner();
 }
 
@@ -457,13 +667,8 @@ function renderGameRooms(g) {
   const box = $('#gp-rooms');
   if (!box) return;
   const rooms = S.lobby.rooms.filter((r) => r.game === g);
-  box.innerHTML = rooms.length ? rooms.map(roomRow).join('') : '<div class="empty">아직 방이 없어요. 빠른 시작을 누르면 바로 방이 만들어져요!</div>';
-  box.onclick = (e) => {
-    const b = e.target.closest('.room-row');
-    if (!b) return;
-    S.expectRoom = true;
-    send({ t: 'join', id: b.dataset.room, watch: b.dataset.status === 'playing' });
-  };
+  box.innerHTML = rooms.length ? rooms.map(roomCard).join('') : '<div class="empty">아직 방이 없어요.<br>빠른 시작을 누르면 바로 방이 만들어져요!</div>';
+  bindRoomJoin(box);
 }
 
 function createRoomModal(g) {
@@ -504,16 +709,16 @@ function renderRoom() {
   $('#view').innerHTML = `
   <div class="room ${chatMin ? 'chat-min' : ''}" data-id="${esc(r.id)}" data-game="${r.game}">
     <div class="room-top">
-      <button class="back" type="button" id="room-back" title="게임 목록">←</button>
-      <div class="room-title"><span class="ricon ${themeClass(r.game)}">${ICONS[r.game] || '🎲'}</span>
+      <button class="back" type="button" id="room-back" title="게임 목록">${icon('back')}</button>
+      <div class="room-title"><span class="ricon">${thumb(r.game)}</span>
         <div class="rt-main"><div class="rt-game">${esc(meta.name)}</div><div class="rt-sub" id="rt-sub"></div></div></div>
-      <div class="timer-chip" id="timer-chip" hidden>⏱ <span></span></div>
+      <div class="timer-chip" id="timer-chip" hidden>${icon('clock')}<span></span></div>
       <div class="room-actions">
-        <button class="btn sm" type="button" id="btn-members" title="참가자">👥<span class="lbl"> 참가자</span></button>
-        <button class="btn sm" type="button" id="btn-invite" title="초대하기">🔗<span class="lbl"> 초대</span></button>
-        <button class="btn sm" type="button" id="btn-sound" title="소리 켜기/끄기">${localStorage.getItem('bg_mute') === '1' ? '🔇' : '🔊'}</button>
-        <button class="btn sm" type="button" id="btn-rules" title="게임 방법">❓<span class="lbl"> 방법</span></button>
-        <button class="btn sm" type="button" id="btn-leave" title="나가기">🚪<span class="lbl"> 나가기</span></button>
+        <button class="btn sm ib" type="button" id="btn-members" title="참가자">${icon('users')}<span class="lbl">참가자</span></button>
+        <button class="btn sm ib" type="button" id="btn-invite" title="초대하기">${icon('link')}<span class="lbl">초대</span></button>
+        <button class="btn sm ib" type="button" id="btn-sound" title="소리 켜기/끄기">${icon(localStorage.getItem('bg_mute') === '1' ? 'mute' : 'volume')}</button>
+        <button class="btn sm ib" type="button" id="btn-rules" title="게임 방법">${icon('help')}<span class="lbl">방법</span></button>
+        <button class="btn sm ib" type="button" id="btn-leave" title="나가기">${icon('exit')}<span class="lbl">나가기</span></button>
       </div>
     </div>
     <div class="room-main">
@@ -527,9 +732,9 @@ function renderRoom() {
         <div class="chat">
           <div class="chat-log" id="room-log"></div>
           <form class="chat-form" id="room-form">
-            <button type="button" class="chat-toggle" id="chat-toggle" title="채팅 펼치기">💬<span class="nbadge" id="room-badge" hidden></span></button>
+            <button type="button" class="chat-toggle" id="chat-toggle" title="채팅 펼치기">${icon('chat')}<span class="nbadge" id="room-badge" hidden></span></button>
             <input class="input" id="room-input" maxlength="200" placeholder="메시지 입력" enterkeyhint="send" autocomplete="off">
-            <button class="btn primary" type="submit">전송</button>
+            <button class="btn primary" type="submit" aria-label="전송">${icon('send')}</button>
           </form>
         </div>
       </aside>
@@ -545,7 +750,7 @@ function renderRoom() {
   $('#btn-sound').onclick = (e) => {
     const mute = localStorage.getItem('bg_mute') !== '1';
     localStorage.setItem('bg_mute', mute ? '1' : '0');
-    e.currentTarget.textContent = mute ? '🔇' : '🔊';
+    e.currentTarget.innerHTML = icon(mute ? 'mute' : 'volume');
     toast(mute ? '소리를 껐어요.' : '소리를 켰어요.');
   };
   $('#btn-invite').onclick = invite;
@@ -606,7 +811,7 @@ function renderMembers() {
   const watchers = r.members.filter((m) => !r.seats.includes(m.uid) && !(r.status === 'playing' && inGame.has(m.uid)));
   const row = (m) => `<div class="member ${m.online === false && !m.bot ? 'offline' : ''}">
       ${avatar(m.uid, m.name, 'sm', m.bot)}<span class="mname">${esc(m.name)}</span>
-      ${m.uid === r.host ? '<span class="tag host">👑 방장</span>' : ''}${m.uid === S.me?.uid ? '<span class="tag me">나</span>' : ''}
+      ${m.uid === r.host ? `<span class="tag host">${icon('crown')}방장</span>` : ''}${m.uid === S.me?.uid ? '<span class="tag me">나</span>' : ''}
       ${m.online === false && !m.bot ? '<span class="tag off">연결 끊김</span>' : ''}
       ${isHost && m.uid !== S.me?.uid ? `<button class="kick" type="button" data-kick="${esc(m.uid)}" title="강퇴">✕</button>` : ''}
     </div>`;
@@ -690,7 +895,7 @@ function showResult() {
   const played = S.view?.players?.some((p) => p.id === S.me.uid);
   overlay.dataset.key = resultKey();
   overlay.innerHTML = `<div class="result-overlay"><div class="result-box">
-    <div class="trophy">${won ? '🏆' : played && r.result.winners?.length ? '😢' : '🎉'}</div>
+    <div class="trophy ${won ? 'win' : played && r.result.winners?.length ? 'lose' : ''}">${icon(won ? 'trophy' : played && r.result.winners?.length ? 'flame' : 'trophy')}</div>
     <h2>${won ? '승리했어요!' : played && r.result.winners?.length ? '아쉽게 졌어요' : '게임 종료'}</h2>
     <p>${esc(r.result.text)}</p>
     <div class="actions">
@@ -769,16 +974,16 @@ function renderWaiting() {
       slots.push(`<div class="seat ${m.uid === S.me.uid ? 'me' : ''}">
         ${isHost && m.uid !== S.me.uid ? `<button class="kick" type="button" data-kick="${esc(m.uid)}" title="내보내기">✕</button>` : ''}
         ${avatar(m.uid, m.name, 'lg', m.bot)}<div class="sname">${esc(m.name)}</div>
-        <div class="stags">${m.uid === r.host ? '<span class="tag host">👑 방장</span>' : ''}${m.bot ? '<span class="tag bot">봇</span>' : ''}${m.uid === S.me.uid ? '<span class="tag me">나</span>' : ''}${m.online === false && !m.bot ? '<span class="tag off">연결 끊김</span>' : ''}</div>
+        <div class="stags">${m.uid === r.host ? `<span class="tag host">${icon('crown')}방장</span>` : ''}${m.bot ? '<span class="tag bot">봇</span>' : ''}${m.uid === S.me.uid ? '<span class="tag me">나</span>' : ''}${m.online === false && !m.bot ? '<span class="tag off">연결 끊김</span>' : ''}</div>
       </div>`);
     } else if (i < Math.max(meta.min, seats.length + 1) || i < 4) {
-      slots.push(`<div class="seat empty">${isHost && meta.bots ? '<button class="btn sm" type="button" data-bot="1">🤖 봇 추가</button>' : '빈 자리'}</div>`);
+      slots.push(`<div class="seat empty">${isHost && meta.bots ? `<button class="btn sm" type="button" data-bot="1">${icon('bot')}봇 추가</button>` : '빈 자리'}</div>`);
     }
   }
   const need = Math.max(0, meta.min - seats.length);
   const opts = meta.options || [];
   root.innerHTML = `<div class="waiting">
-    ${r.result ? `<div class="result-card"><div class="rt">🏁 ${esc(r.result.text)}</div><div class="rw">한 판 더 하려면 방장이 게임을 시작하면 돼요!</div></div>` : ''}
+    ${r.result ? `<div class="result-card"><div class="res-t">${icon('trophy')}<span>${esc(r.result.text)}</span></div><div class="res-w">한 판 더 하려면 방장이 게임을 시작하면 돼요!</div></div>` : ''}
     <div class="wait-head"><h2>${esc(meta.name)} 대기실</h2><p>${playersText(r.game)} · ${need ? `<b style="color:var(--accent)">${need}명 더</b> 모이면 시작할 수 있어요` : '모두 모였어요! 준비되면 시작하세요'}</p></div>
     <div class="seats">${slots.join('')}</div>
     ${opts.length ? `<div class="panel"><div class="panel-head"><h3>게임 설정</h3>${isHost ? '' : '<span class="small muted">방장만 바꿀 수 있어요</span>'}</div><div class="opts">
@@ -787,14 +992,14 @@ function renderWaiting() {
     : `<div class="val">${esc(o.choices.find(([v]) => v === r.opts[o.key])?.[1] ?? '-')}</div>`}</div>`).join('')}
     </div></div>` : ''}
     <div class="wait-actions">
-      ${isHost ? `<button class="btn primary lg" type="button" id="start" ${need ? 'disabled' : ''}>🎲 게임 시작</button>` : ''}
-      ${isHost && meta.bots && seats.length < meta.max ? '<button class="btn lg" type="button" data-bot="1">🤖 봇 추가</button>' : ''}
+      ${isHost ? `<button class="btn primary lg" type="button" id="start" ${need ? 'disabled' : ''}>${icon('play')}게임 시작</button>` : ''}
+      ${isHost && meta.bots && seats.length < meta.max ? `<button class="btn lg" type="button" data-bot="1">${icon('bot')}봇 추가</button>` : ''}
       ${isHost && meta.bots && seats.some((m) => m.bot) ? '<button class="btn lg" type="button" data-bot="0">봇 빼기</button>' : ''}
-      <button class="btn lg" type="button" id="invite2">🔗 친구 초대</button>
+      <button class="btn lg" type="button" id="invite2">${icon('link')}친구 초대</button>
       ${mySeat ? '<button class="btn lg ghost" type="button" id="stand">관전하기</button>' : seats.length < meta.max ? '<button class="btn lg good" type="button" id="sit">참가하기</button>' : ''}
     </div>
     ${isHost ? '' : `<p class="wait-note">${mySeat ? '방장이 게임을 시작하기를 기다리고 있어요…' : '관전 중이에요. 자리가 있으면 참가할 수 있어요.'}</p>`}
-    ${meta.bots && seats.length < meta.min + 1 ? '<p class="wait-note">💡 혼자라면 봇을 추가해서 바로 연습할 수 있어요!</p>' : ''}
+    ${meta.bots && seats.length < meta.min + 1 ? '<p class="wait-note">혼자라면 봇을 추가해서 바로 연습할 수 있어요!</p>' : ''}
   </div>`;
   root.onclick = (e) => {
     const b = e.target.closest('[data-bot]');
@@ -861,7 +1066,7 @@ setInterval(() => {
   const sec = Math.max(0, Math.ceil(left / 1000));
   const txt = sec >= 60 ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` : `${sec}초`;
   chip.querySelector('span').textContent = txt;
-  bar.querySelector('.tb-text').textContent = `⏱ ${txt}`;
+  bar.querySelector('.tb-text').textContent = txt;
   chip.classList.toggle('danger', left < 5000 && left > 0);
 }, 200);
 
@@ -877,6 +1082,7 @@ setInterval(() => {
 }, 1000);
 
 // ─── 시작 ─────────────────────────────────────────────────
+$$('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
 render();
 net.connect();
 if (firstVisit) setTimeout(() => nameModal(true), 400);

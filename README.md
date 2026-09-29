@@ -3,7 +3,7 @@
 휴대폰과 컴퓨터에서 설치 없이 바로 즐기는 **실시간 멀티플레이 보드게임 사이트**입니다.
 방을 만들고 링크를 보내 친구를 초대하거나, 로비에서 처음 만난 사람들과 채팅하며 함께 게임할 수 있어요.
 
-- 🎮 16가지 게임 (인기 순서대로 배치)
+- 🎮 16가지 게임 (인기 순서대로 배치) + 화상 추리 게임 **레지스탕스 아발론**
 - 💬 로비 채팅 · 게임방 채팅 · 관전 · 초대 링크 · 방 번호로 입장 · 비공개 방
 - 🤖 혼자일 때는 봇과 연습 (오목, 리버시, 요트, 러미, 원카드, 숫자 암호, 과일 종치기, 보석 상인, 쿠데타)
 - 📱 휴대폰/PC 모두 지원, 홈 화면에 추가 가능 (PWA)
@@ -21,7 +21,7 @@
 | 1 | 러미 타일 | 루미큐브 | 2~4 | ✅ |
 | 1 | 요트 다이스 | 요트 다이스 | 1~4 | ✅ |
 | 1 | 오목 | 오목 | 2 | ✅ |
-| 2 | 원탁의 스파이 | 아발론 | 5~10 | |
+| 2 | 아발론 | 레지스탕스 아발론 (화상 · 음성 · CPU 기사) | 5~10 | ✅ CPU |
 | 2 | 단어 스파이 | 코드네임 | 4~8 | |
 | 2 | 컬러 원카드 | 우노 | 2~8 | ✅ |
 | 2 | 숫자 암호 | 다빈치 코드 | 2~4 | ✅ |
@@ -47,7 +47,25 @@ npm run dev
 
 브라우저에서 <http://localhost:8787> 을 열면 됩니다. 창을 여러 개(시크릿 창 포함) 열면 혼자서도 여러 명처럼 테스트할 수 있어요.
 
-게임 규칙 테스트: `npm test` (16개 게임을 각각 60판씩 무작위로 끝까지 진행해 봐요)
+게임 규칙 테스트: `npm test` (15개 게임을 각각 60판씩 무작위로 끝까지 진행하고, 아발론 테스트 43개도 함께 실행해요)
+
+## 아발론 (화상 추리 게임)
+
+`/avalon/` 주소에서 열리는 별도 게임이에요. 카메라·마이크로 얼굴을 보며 토론하고, 사회자 음성이 진행하며, 인원이 부족하면 CPU 기사를 넣을 수 있어요.
+보드게임 모음집의 닉네임을 그대로 이어받고, 홈 화면 배너·게임 목록에서 바로 들어갈 수 있어요.
+
+- **처음 배포하면 잠겨 있어요.** `https://내-주소/avalon/admin` 에서 관리자 비밀번호로 로그인한 뒤 **잠금 해제**를 눌러야 다른 사람이 들어올 수 있어요.
+- 영상 연결(TURN) 사용량이 한 달 `TURN_MONTHLY_CAP_GB`(기본 800GB)를 넘으면 새 방을 막아 요금 폭탄을 방지해요.
+- 아래 값은 **절대 GitHub에 올리지 말고** Cloudflare 대시보드 → Worker → **Settings → Variables and Secrets** 에서 *Secret* 으로 넣어 주세요.
+
+| Secret 이름 | 용도 |
+|---|---|
+| `SITE_ADMIN_PASSWORD` | `/avalon/admin` 관리자 비밀번호 |
+| `TURN_KEY_ID` / `TURN_KEY_API_TOKEN` | Cloudflare Realtime TURN 키 (영상이 안 붙는 네트워크용) |
+| `CF_ACCOUNT_ID` / `CF_ANALYTICS_API_TOKEN` | TURN 사용량 조회 (800GB 제한 확인용) |
+
+TURN 키가 없어도 대부분의 네트워크에서는 영상이 연결돼요. 내 컴퓨터에서 시험할 때는 `.dev.vars` 파일에 `SITE_ADMIN_PASSWORD=원하는비밀번호` 를 적으면 돼요 (이 파일은 GitHub에 올라가지 않아요).
+자세한 내용은 `avalon/README.md`를 참고하세요.
 
 ## Cloudflare에 배포하기 (GitHub 연동)
 
@@ -60,7 +78,7 @@ Workers도 GitHub에 올리면 자동으로 배포돼요.
 4. GitHub 계정을 연결하고 이 저장소(`game`)를 선택합니다.
 5. 설정 화면에서
    - **Project name**: `boardgame-collection` (`wrangler.toml`의 `name`과 같아야 해요)
-   - **Build command**: 비워 두기
+   - **Build command**: 비워 두기 (배포 전에 검사하고 싶으면 `npm install && npm test`)
    - **Deploy command**: `npx wrangler deploy` (기본값)
    - **Production branch**: `main`
 6. **Deploy**를 누르면 1~2분 뒤 `https://boardgame-collection.<내-계정>.workers.dev` 주소가 생겨요.
@@ -89,12 +107,15 @@ npm run deploy
 ```
 public/                 ← 화면 (그대로 배포되는 정적 파일)
   index.html
-  css/style.css         ← 공통 디자인 (G마켓 산스, 카드형 게임 목록, 모바일 레이아웃)
+  css/style.css         ← 공통 디자인 (G마켓 산스, 상단 메뉴·슬라이드 배너·게임 카드·푸터, 모바일 레이아웃)
   css/games.css         ← 게임별 디자인
   fonts/                ← G마켓 산스 (woff2)
   js/app.js             ← 로비 · 방 · 채팅 · 대기실 화면
   js/catalog.js         ← 게임 목록/이름/순서/규칙/옵션 (서버와 공용)
-  js/art.js             ← 게임 카드 일러스트 (SVG)
+  art/*.svg             ← 게임 키아트 (16:9 대표 이미지)
+  js/art.js             ← 키아트 불러오기 (아발론은 표지·역할 초상화 조합)
+  js/icons.js           ← 화면에 쓰는 선 아이콘
+  avalon/               ← 아발론 화면 · 역할 그림
   js/draw.js            ← 그림판 (그림 맞히기 · 그림 릴레이)
   js/games/*.js         ← 게임별 화면
   js/shared/*.js        ← 서버와 화면이 함께 쓰는 규칙 (러미, 원카드, 요트, 보석 상인)
@@ -103,6 +124,8 @@ src/
   hub.js                ← 실시간 서버 (로비, 방, 채팅, 봇, 타이머, 저장)
   games/*.js            ← 게임별 규칙 (서버에서 판정 → 남의 패를 볼 수 없고 부정행위 방지)
   games/words.js        ← 라이어·그림 맞히기·단어 스파이 제시어 목록
+avalon/src/             ← 아발론 서버 (방·게임 진행·CPU 기사·사이트 잠금)
+avalon/test/            ← 아발론 테스트
 test/games.test.js      ← 게임 규칙 테스트
 ```
 
@@ -111,4 +134,4 @@ test/games.test.js      ← 게임 규칙 테스트
 - **게임 이름·설명·규칙·인원·순서**: `public/js/catalog.js`
 - **제시어 추가**: `src/games/words.js`
 - **색상·글꼴 크기**: `public/css/style.css` 맨 위 `:root`
-- **새 게임 추가**: `src/games/새게임.js`(규칙) → `src/games/index.js`(등록) → `catalog.js`·`art.js`(목록/그림) → `public/js/games/새게임.js`(화면)
+- **새 게임 추가**: `src/games/새게임.js`(규칙) → `src/games/index.js`(등록) → `catalog.js`(목록) → `public/art/새게임.svg`(대표 그림, 16:9) → `public/js/games/새게임.js`(화면)

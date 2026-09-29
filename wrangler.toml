@@ -4,19 +4,37 @@ main = "src/worker.js"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
-# 정적 파일(HTML/CSS/JS/폰트)
+# 정적 파일(HTML/CSS/JS/폰트/이미지)
+# /avalon 은 사이트 잠금(관리자) 확인을 위해 항상 Worker를 먼저 거칩니다.
 [assets]
 directory = "./public"
 binding = "ASSETS"
+run_worker_first = ["/avalon", "/avalon/*"]
 
-# 실시간 멀티플레이 서버 (Durable Object)
+[vars]
+# 아발론 영상(TURN) 월 사용량 안전 한도 (GB)
+TURN_MONTHLY_CAP_GB = "800"
+
+# 실시간 서버 (Durable Objects)
 [[durable_objects.bindings]]
 name = "HUB"
 class_name = "Hub"
 
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "AvalonRoom"
+
+[[durable_objects.bindings]]
+name = "GATE"
+class_name = "SiteGate"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Hub"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["AvalonRoom", "SiteGate"]
 
 [observability]
 enabled = true
