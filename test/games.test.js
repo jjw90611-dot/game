@@ -38,6 +38,27 @@ const RANDOM = {
   drawguess(st, pid) {
     return { type: 'choose', i: rand(3) };
   },
+  roundtable(st, pid) {
+    const ids = st.players.map((p) => p.id);
+    const r = Math.random();
+    if (r < 0.3) return { type: 'team', pids: shuffled(ids).slice(0, 2 + rand(4)) };
+    if (r < 0.6) return { type: 'vote', approve: Math.random() < 0.6 };
+    if (r < 0.85) return { type: 'quest', success: Math.random() < 0.6 };
+    return { type: 'assassinate', target: pickOne(ids) };
+  },
+  wordspy(st, pid) {
+    const r = Math.random();
+    const ops = st.players.filter((p) => st.teams[p.id] === st.turn && p.id !== st.spy[st.turn]).map((p) => p.id);
+    if (st.phase === 'clue') return { _as: Math.random() < 0.9 ? st.spy[st.turn] : pid, type: 'clue', word: pickOne(['과일', '바다', '동물', '사과']), num: rand(4) };
+    if (r < 0.1) return { _as: pickOne(ops), type: 'mark', i: rand(25) };
+    if (r < 0.9) return { _as: Math.random() < 0.9 ? pickOne(ops) : pid, type: 'guess', i: rand(25) };
+    return { _as: pickOne(ops), type: 'end' };
+  },
+  relay(st, pid) {
+    if (st.phase === 'album') return { type: 'next', book: st.album.book, page: st.album.page };
+    if (Math.random() < 0.5) return { type: 'submit', text: '고양이가 춤춘다' };
+    return { type: 'submit', strokes: [{ c: 1, w: 1, p: [10, 10, 200, 300, 400, 100] }] };
+  },
 };
 
 // 채팅으로 진행되는 게임(그림 맞히기) 시뮬레이션
@@ -64,10 +85,12 @@ function simulate(id, n, opts = {}, maxSteps = 6000) {
     let acted = false;
     // 가끔 무작위 행동 (실패하면 원래 상태로 되돌림 → 서버와 같은 동작)
     if (RANDOM[id] && Math.random() < 0.7) {
-      const pid = pickOne(players).id;
+      let pid = pickOne(players).id;
       const backup = structuredClone(st);
       try {
-        mod.action(st, pid, RANDOM[id](st, pid), ctx());
+        const a = RANDOM[id](st, pid);
+        if (a._as) pid = a._as;
+        mod.action(st, pid, a, ctx());
         acted = true;
       } catch (e) {
         if (!e.user) throw e;
