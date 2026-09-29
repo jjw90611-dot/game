@@ -1,0 +1,13 @@
+{
+  "name": "보드게임 모음집",
+  "short_name": "보드게임",
+  "description": "휴대폰과 컴퓨터에서 친구들과 함께 즐기는 실시간 보드게임",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef1f6",
+  "theme_color": "#2f4fd9",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
