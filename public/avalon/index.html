@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080b10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="레지스탕스 아발론 실시간 영상 온라인 보드게임" />
+  <title>레지스탕스 아발론 · 원탁의 밤</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Noto+Sans+KR:wght@400;500;600;700;800;900&family=Noto+Serif+KR:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="world-bg" aria-hidden="true">
+    <div class="world-glow world-glow-blue"></div>
+    <div class="world-glow world-glow-red"></div>
+    <div class="world-stars"></div>
+  </div>
+
+  <div id="app">
+    <section id="entryScreen" class="screen entry-screen">
+      <div class="landing-wrap">
+        <header class="landing-nav">
+          <a class="brand-lockup" href="./" aria-label="아발론 홈">
+            <span class="brand-crest">A</span>
+            <span class="brand-type"><small>THE RESISTANCE</small><b>AVALON</b></span>
+          </a>
+          <div class="landing-nav-actions">
+            <a class="collection-back" href="/" title="보드게임 모음집으로 돌아가기">← 보드게임 모음집</a>
+            <button class="admin-site-lock-btn hidden" data-site-lock type="button" title="관리자: 사이트를 다시 잠급니다"><span>🔒</span> 사이트 잠금</button>
+            <button id="entryGuideBtn" class="nav-guide-btn" type="button"><span>⌘</span> 게임 가이드</button>
+          </div>
+        </header>
+
+        <div class="entry-shell">
+          <section class="hero-panel" aria-label="아발론 소개">
+            <div class="hero-scene" aria-hidden="true">
+              <div class="round-table-sigil"></div>
+              <figure class="hero-role hero-role-merlin"><img src="assets/roles/merlin.jpg" alt=""><figcaption>MERLIN</figcaption></figure>
+              <figure class="hero-role hero-role-assassin"><img src="assets/roles/assassin.jpg" alt=""><figcaption>ASSASSIN</figcaption></figure>
+              <div class="castle-silhouette"></div>
+            </div>
+            <div class="hero-copy">
+              <p class="eyebrow">AN ONLINE SOCIAL DEDUCTION EXPERIENCE</p>
+              <h1><span>오늘 밤, 당신은</span><strong>원탁의 전설이 됩니다</strong></h1>
+              <p class="hero-lede">서로의 얼굴을 보며 설득하고 의심하세요. 한 장의 비밀 카드가 당신을 멀린으로, 암살자로, 혹은 이름 없는 충신으로 만듭니다.</p>
+              <div class="hero-badges"><span>5–10인</span><span>실시간 영상</span><span>한국어 진행</span><span>모바일 최적화</span></div>
+              <div class="hero-ruleline"><span>Ⅰ. 원정대를 꾸리고</span><span>Ⅱ. 찬반을 투표하고</span><span>Ⅲ. 진실을 숨기세요</span></div>
+            </div>
+          </section>
+
+          <aside class="entry-card royal-panel invitation-card">
+            <div class="entry-card-head">
+              <div class="wax-seal">♜</div>
+              <div><p class="eyebrow">YOUR INVITATION</p><h2>원탁의 초대장</h2><p>기사의 이름을 남기고 왕국에 입장하세요.</p></div>
+            </div>
+            <label class="field-label" for="nameInput">기사의 이름</label>
+            <div class="input-shell"><span>✦</span><input id="nameInput" class="text-input" maxlength="18" autocomplete="nickname" placeholder="예: 민수" /></div>
+
+            <div class="entry-actions">
+              <button id="createBtn" class="btn primary"><span>새 원탁 열기</span><small>내가 방장이 됩니다</small></button>
+              <div class="divider"><span>초대 코드를 받았다면</span></div>
+              <label class="field-label" for="roomInput">5자리 방 코드</label>
+              <div class="input-shell code-shell"><span>⌘</span><input id="roomInput" class="text-input code-input" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="ABCDE" /></div>
+              <button id="joinBtn" class="btn secondary">초대받은 원탁 입장</button>
+            </div>
+
+            <div class="device-note"><span class="note-icon">◉</span><div><b>게임 참가자만 카메라와 마이크를 사용합니다.</b><small>방장이 관전자로 지정하면 영상·마이크 권한 없이 관전할 수 있습니다. 게임 참가자의 비밀 단계에서는 얼굴과 음성이 자동으로 잠시 가려집니다.</small></div></div>
+            <p id="entryError" class="error-text" aria-live="polite"></p>
+          </aside>
+        </div>
+
+        <section class="card-codex" aria-label="주요 역할 카드 미리보기">
+          <div class="codex-heading">
+            <div><p class="eyebrow">THE ROYAL ARCHIVE</p><h2>인물 도감</h2></div>
+            <p>가이드와 실제 게임의 역할 카드는 동일한 초상을 사용합니다. 게임 전에 얼굴과 이름을 익혀두면 추리가 훨씬 빠릅니다.</p>
+          </div>
+          <div class="codex-grid">
+            <article class="codex-card good"><div class="portrait-frame"><img src="assets/roles/merlin.jpg" alt="멀린"></div><div class="codex-meta"><span class="faction-mark">선</span><b>멀린</b><small>모드레드를 제외한 악을 압니다.</small></div></article>
+            <article class="codex-card good"><div class="portrait-frame"><img src="assets/roles/percival.jpg" alt="퍼시벌"></div><div class="codex-meta"><span class="faction-mark">선</span><b>퍼시벌</b><small>멀린을 압니다. 모르가나가 있으면 둘 중 누가 멀린인지 모릅니다.</small></div></article>
+            <article class="codex-card good"><div class="portrait-frame"><img src="assets/roles/servant.jpg" alt="충신"></div><div class="codex-meta"><span class="faction-mark">선</span><b>충신</b><small>정보 없이 대화와 투표로 악을 추리합니다.</small></div></article>
+            <article class="codex-card evil"><div class="portrait-frame"><img src="assets/roles/assassin.jpg" alt="암살자"></div><div class="codex-meta"><span class="faction-mark">악</span><b>암살자</b><small>선이 3승하면 마지막에 멀린을 지목합니다.</small></div></article>
+            <article class="codex-card evil"><div class="portrait-frame"><img src="assets/roles/mordred.jpg" alt="모드레드"></div><div class="codex-meta"><span class="faction-mark">악</span><b>모드레드</b><small>멀린의 시야에 보이지 않는 악입니다.</small></div></article>
+            <article class="codex-card evil"><div class="portrait-frame"><img src="assets/roles/morgana.jpg" alt="모르가나"></div><div class="codex-meta"><span class="faction-mark">악</span><b>모르가나</b><small>퍼시벌에게 멀린 후보처럼 보입니다.</small></div></article>
+            <article class="codex-card evil"><div class="portrait-frame"><img src="assets/roles/oberon.jpg" alt="오베론"></div><div class="codex-meta"><span class="faction-mark">악</span><b>오베론</b><small>다른 악과 서로 정체를 모릅니다.</small></div></article>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen game-screen hidden">
+      <header class="topbar royal-panel">
+        <div class="room-mark">
+          <span class="brand-crest mini">A</span>
+          <div><span class="tiny-label">ROUND TABLE</span><button id="copyCodeBtn" class="room-code" title="방 코드와 초대 링크 공유"><span id="roomCodeText">-----</span> <i>⧉</i></button></div>
+        </div>
+        <div class="topbar-center"><span id="phaseLabel" class="phase-pill">대기실</span><span id="scoreLabel" class="score-label"><i class="good-orb"></i> 선 0 : 0 악 <i class="evil-orb"></i></span></div>
+        <div class="top-actions">
+          <button id="guideBtn" class="icon-btn" title="게임 가이드"><span>📜</span><small>가이드</small></button>
+          <button id="voiceSettingsBtn" class="icon-btn" title="사회자 음성: Yuna 고정"><span>🎙</span><small>Yuna</small></button>
+          <button id="voiceBtn" class="icon-btn active" title="사회자 음성은 항상 켜져 있습니다" disabled><span>🔊</span><small>ON</small></button>
+          <button id="cameraBtn" class="icon-btn active" title="카메라 켜기/끄기"><span>📹</span></button>
+          <button id="micBtn" class="icon-btn active" title="마이크 켜기/끄기"><span>🎙️</span></button>
+          <button id="abortBtn" class="icon-btn abort hidden" title="방장: 진행 중인 게임 중단"><span>■</span><small>중단</small></button>
+          <button class="admin-site-lock-btn game-admin-lock hidden" data-site-lock type="button" title="관리자: 사이트를 다시 잠급니다"><span>🔒</span><b>사이트 잠금</b></button>
+          <button id="leaveBtn" class="leave-room-btn" title="방 나가기"><span>↪</span><b>방 나가기</b></button>
+        </div>
+      </header>
+
+      <main class="game-layout">
+        <section class="video-panel">
+          <div class="table-rune" aria-hidden="true"><span></span></div>
+          <div id="videoGrid" class="video-grid"></div>
+          <div id="connectionBanner" class="connection-banner hidden"></div>
+        </section>
+
+        <aside class="control-panel royal-panel">
+          <div class="panel-title"><span>◆</span><b>ROYAL DECREE</b><span>◆</span></div>
+          <div id="missionTrack" class="mission-track"></div>
+          <div id="gameControls"></div>
+          <div id="historyPanel" class="history-panel"></div>
+        </aside>
+      </main>
+    </section>
+  </div>
+
+  <div id="narratorOverlay" class="narrator-overlay hidden" role="status" aria-live="polite">
+    <div class="narrator-card royal-panel"><div class="narrator-seal"><span>♛</span></div><div><p class="eyebrow">ROYAL ANNOUNCER</p><p id="narratorText" class="narrator-text"></p></div><button id="narratorClose" class="narrator-close" aria-label="닫기">×</button></div>
+  </div>
+
+  <div id="guideModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="아발론 게임 가이드">
+    <div class="modal-card guide-modal royal-panel">
+      <div class="modal-head"><div><p class="eyebrow">ROYAL ARCHIVE</p><h2>처음 하는 기사도 3분이면 충분합니다</h2></div><button class="modal-close" data-close-modal="guideModal">×</button></div>
+      <div class="guide-hero-strip"><div><b>선의 목표</b><span>원정 5번 중 3번 성공 + 암살자의 멀린 지목을 피하기</span></div><div><b>악의 목표</b><span>원정 3번 실패 또는 5회 연속 부결, 혹은 마지막에 멀린 암살</span></div></div>
+      <div class="guide-flow">
+        <div><i>1</i><b>역할 확인</b><small>내 화면만 확인</small></div><span>›</span><div><i>2</i><b>원정대 구성</b><small>대표자가 선택</small></div><span>›</span><div><i>3</i><b>찬반 투표</b><small>과반수만 통과</small></div><span>›</span><div><i>4</i><b>임무 카드</b><small>선은 성공만</small></div><span>›</span><div><i>5</i><b>결과 공개</b><small>3승을 먼저 달성</small></div>
+      </div>
+      <section class="guide-section">
+        <div class="guide-section-head"><div><p class="eyebrow">BEGINNER SET</p><h3>5명 첫 판 추천 카드</h3></div><span>선 3 · 악 2</span></div>
+        <div class="guide-role-row">
+          <article class="guide-role good"><img src="assets/roles/merlin.jpg" alt="멀린"><div><b>멀린</b><small>모드레드를 제외한 악을 앎</small></div></article>
+          <article class="guide-role good"><img src="assets/roles/percival.jpg" alt="퍼시벌"><div><b>퍼시벌</b><small>멀린을 앎</small></div></article>
+          <article class="guide-role good"><img src="assets/roles/servant.jpg" alt="충신"><div><b>충신</b><small>추리와 설득 담당</small></div></article>
+          <article class="guide-role evil"><img src="assets/roles/assassin.jpg" alt="암살자"><div><b>암살자</b><small>마지막에 멀린 지목</small></div></article>
+          <article class="guide-role evil"><img src="assets/roles/mordred.jpg" alt="모드레드"><div><b>모드레드</b><small>멀린에게 보이지 않음</small></div></article>
+        </div>
+      </section>
+      <section class="guide-section player-set-guide">
+        <div class="guide-section-head"><div><p class="eyebrow">PLAYER SETS</p><h3>인원별 기본 추천 카드</h3></div><span>눌러서 펼쳐보기</span></div>
+        <p class="guide-intro-copy">아래는 현재 사이트의 기본 추천 설정인 <b>멀린 + 퍼시벌 + 암살자 + 모드레드</b>를 기준으로 한 쉬운 구성입니다. 인원이 늘어날 때 어떤 카드가 추가되는지 확인하세요.</p>
+        <div class="player-set-accordions">
+          <details open><summary><b>5명</b><span>선 3 · 악 2</span><em>기본 시작</em></summary><div class="set-body">
+            <div class="set-role good"><img src="assets/roles/merlin.jpg" alt="멀린"><span><b>멀린</b><small>모드레드를 제외한 악을 앎</small></span></div>
+            <div class="set-role good"><img src="assets/roles/percival.jpg" alt="퍼시벌"><span><b>퍼시벌</b><small>모르가나가 없으면 멀린을 정확히 앎</small></span></div>
+            <div class="set-role good"><img src="assets/roles/servant.jpg" alt="충신"><span><b>충신 1</b><small>특수 정보 없이 추리</small></span></div>
+            <div class="set-role evil"><img src="assets/roles/assassin.jpg" alt="암살자"><span><b>암살자</b><small>선 3승 뒤 멀린 지목</small></span></div>
+            <div class="set-role evil"><img src="assets/roles/mordred.jpg" alt="모드레드"><span><b>모드레드</b><small>멀린에게 보이지 않음</small></span></div>
+          </div></details>
+          <details><summary><b>6명</b><span>선 4 · 악 2</span><em>+ 충신 1</em></summary><div class="set-body"><div class="set-added">5명 구성에 <strong>충신 1명</strong>이 추가됩니다.</div><div class="set-role good"><img src="assets/roles/servant.jpg" alt="충신"><span><b>충신 총 2명</b><small>멀린이 너무 드러나지 않도록 자유롭게 추리합니다.</small></span></div></div></details>
+          <details><summary><b>7명</b><span>선 4 · 악 3</span><em>+ 하수인 1</em></summary><div class="set-body"><div class="set-added">6명 구성에 악의 세력 <strong>모드레드의 하수인 1명</strong>이 추가됩니다.</div><div class="set-role evil"><img src="assets/roles/minion.jpg" alt="모드레드의 하수인"><span><b>모드레드의 하수인</b><small>다른 일반 악을 알고 원정을 방해합니다.</small></span></div><div class="set-tip">7명부터 4번째 원정은 실패 카드가 2장 이상이어야 실패합니다.</div></div></details>
+          <details><summary><b>8명</b><span>선 5 · 악 3</span><em>+ 충신 1</em></summary><div class="set-body"><div class="set-added">7명 구성에 <strong>충신 1명</strong>이 더 추가됩니다.</div><div class="set-role good"><img src="assets/roles/servant.jpg" alt="충신"><span><b>충신 총 3명</b><small>선의 숫자가 늘어 추리와 설득의 비중이 커집니다.</small></span></div></div></details>
+          <details><summary><b>9명</b><span>선 6 · 악 3</span><em>+ 충신 1</em></summary><div class="set-body"><div class="set-added">8명 구성에 <strong>충신 1명</strong>이 더 추가됩니다.</div><div class="set-role good"><img src="assets/roles/servant.jpg" alt="충신"><span><b>충신 총 4명</b><small>악 3명을 찾기 위한 투표 기록이 더욱 중요해집니다.</small></span></div></div></details>
+          <details><summary><b>10명</b><span>선 6 · 악 4</span><em>+ 하수인 1</em></summary><div class="set-body"><div class="set-added">9명 구성에 악의 세력 <strong>모드레드의 하수인 1명</strong>이 더 추가됩니다.</div><div class="set-role evil"><img src="assets/roles/minion.jpg" alt="모드레드의 하수인"><span><b>하수인 총 2명</b><small>기본 추천 설정에서는 암살자·모드레드와 함께 악 4명을 구성합니다.</small></span></div></div></details>
+        </div>
+        <div class="set-option-note"><b>선택 역할을 켜면?</b><span>모르가나·오베론·란슬롯을 켜면 위 기본 카드 중 같은 진영의 일반 카드 자리를 특수 역할이 대신합니다. 실제 대기실의 “이번 게임의 카드” 미리보기가 최종 구성을 가장 정확하게 보여줍니다.</span></div>
+      </section>
+      <div class="guide-columns">
+        <section class="guide-section"><div class="guide-section-head"><h3>인원별 진영 구성</h3></div><div class="table-wrap"><table><thead><tr><th>인원</th><th>선</th><th>악</th></tr></thead><tbody><tr><td>5</td><td>3</td><td>2</td></tr><tr><td>6</td><td>4</td><td>2</td></tr><tr><td>7</td><td>4</td><td>3</td></tr><tr><td>8</td><td>5</td><td>3</td></tr><tr><td>9</td><td>6</td><td>3</td></tr><tr><td>10</td><td>6</td><td>4</td></tr></tbody></table></div></section>
+        <section class="guide-section"><div class="guide-section-head"><h3>라운드별 원정대 인원</h3></div><div class="table-wrap"><table><thead><tr><th>인원</th><th>1R</th><th>2R</th><th>3R</th><th>4R</th><th>5R</th></tr></thead><tbody><tr><td>5</td><td>2</td><td>3</td><td>2</td><td>3</td><td>3</td></tr><tr><td>6</td><td>2</td><td>3</td><td>4</td><td>3</td><td>4</td></tr><tr><td>7</td><td>2</td><td>3</td><td>3</td><td>4*</td><td>4</td></tr><tr><td>8</td><td>3</td><td>4</td><td>4</td><td>5*</td><td>5</td></tr><tr><td>9</td><td>3</td><td>4</td><td>4</td><td>5*</td><td>5</td></tr><tr><td>10</td><td>3</td><td>4</td><td>4</td><td>5*</td><td>5</td></tr></tbody></table></div><small class="table-note">* 7명 이상은 4라운드에서 실패 카드가 2장 이상 나와야 실패합니다.</small></section>
+      </div>
+      <section class="guide-section knowledge-guide"><div class="guide-section-head"><h3>누가 누구를 알고 시작하나요?</h3></div><div class="knowledge-cards"><div><b>멀린</b><span>악을 압니다. 단, <em>모드레드는 보이지 않습니다.</em></span></div><div><b>퍼시벌</b><span>모르가나가 없으면 <em>멀린을 정확히 압니다.</em> 모르가나가 있으면 두 명을 보지만 구분하지 못합니다.</span></div><div><b>일반 악</b><span>서로를 압니다. 단, <em>오베론은 서로 보이지 않습니다.</em></span></div></div></section>
+    </div>
+  </div>
+
+  <div id="voiceModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="사회자 음성 설정">
+    <div class="modal-card voice-modal royal-panel">
+      <div class="modal-head"><div><p class="eyebrow">ROYAL ANNOUNCER</p><h2>사회자 음성</h2></div><button class="modal-close" data-close-modal="voiceModal">×</button></div>
+      <p class="modal-copy">사회자 음성은 <b>Yuna(유나)</b>로 고정되어 있으며 게임 중 항상 켜져 있습니다. 음소거 버튼으로 끌 수 없고, 모든 진행 멘트를 자동으로 읽습니다.</p>
+      <label class="field-label" for="voiceSelect">고정 사회자</label>
+      <select id="voiceSelect" class="text-input voice-select" disabled><option>Yuna · 유나 (고정)</option></select>
+      <div class="voice-actions"><button id="voiceTestBtn" class="btn secondary">Yuna 미리 듣기</button><button class="btn primary" data-close-modal="voiceModal">확인</button></div>
+      <small class="voice-hint">Web Speech는 휴대폰/브라우저에 설치된 음성을 사용합니다. 해당 기기에 Yuna 음성이 없으면 화면 안내는 정상 작동하지만 음성 재생은 하지 않습니다.</small>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="socket-client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

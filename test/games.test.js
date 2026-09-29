@@ -38,14 +38,6 @@ const RANDOM = {
   drawguess(st, pid) {
     return { type: 'choose', i: rand(3) };
   },
-  roundtable(st, pid) {
-    const ids = st.players.map((p) => p.id);
-    const r = Math.random();
-    if (r < 0.3) return { type: 'team', pids: shuffled(ids).slice(0, 2 + rand(4)) };
-    if (r < 0.6) return { type: 'vote', approve: Math.random() < 0.6 };
-    if (r < 0.85) return { type: 'quest', success: Math.random() < 0.6 };
-    return { type: 'assassinate', target: pickOne(ids) };
-  },
   wordspy(st, pid) {
     const r = Math.random();
     const ops = st.players.filter((p) => st.teams[p.id] === st.turn && p.id !== st.spy[st.turn]).map((p) => p.id);

@@ -1,4 +1,5 @@
 // 화면 공용 도우미
+import { icon } from './icons.js';
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -14,7 +15,7 @@ export function colorOf(id) {
 
 export function avatar(id, name, cls = '', bot = false) {
   const ch = [...String(name || '?').trim()][0] || '?';
-  return `<span class="avatar ${cls} ${bot ? 'bot' : ''}" style="--c:${colorOf(id)}">${bot ? '🤖' : esc(ch)}</span>`;
+  return `<span class="avatar ${cls} ${bot ? 'bot' : ''}" style="--c:${colorOf(id)}">${bot ? icon('bot') : esc(ch)}</span>`;
 }
 
 export function toast(msg, kind = '') {
@@ -39,7 +40,7 @@ export function openModal({ title, body = '', actions = [], wide = false, onOpen
   back.className = 'modal-back';
   back.innerHTML = `
     <div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">
-      <div class="modal-head"><h3>${esc(title)}</h3>${closable ? '<button class="modal-x" type="button" aria-label="닫기">✕</button>' : ''}</div>
+      <div class="modal-head"><h3>${esc(title)}</h3>${closable ? `<button class="modal-x" type="button" aria-label="닫기">${icon('x')}</button>` : ''}</div>
       <div class="modal-body">${body}</div>
       ${actions.length ? `<div class="modal-foot">${actions.map((a, i) => `<button type="button" class="btn ${a.cls || ''}" data-i="${i}">${esc(a.label)}</button>`).join('')}</div>` : ''}
     </div>`;

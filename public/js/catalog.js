@@ -5,7 +5,7 @@ export const SITE_NAME = '보드게임 모음집';
 // 사이트에 보이는 순서 (1순위 → 2순위 → 3순위)
 export const CATEGORIES = [
   { id: 'hot', name: '인기 게임', desc: '지금 가장 많이 하는 게임', games: ['liar', 'mafia', 'drawguess', 'rummy', 'yacht', 'omok'] },
-  { id: 'rec', name: '추천 게임', desc: '여럿이 모이면 더 재밌는 게임', games: ['roundtable', 'wordspy', 'onecard', 'numbercode', 'fruitbell', 'relay', 'reversi'] },
+  { id: 'rec', name: '추천 게임', desc: '여럿이 모이면 더 재밌는 게임', games: ['avalon', 'wordspy', 'onecard', 'numbercode', 'fruitbell', 'relay', 'reversi'] },
   { id: 'more', name: '전략 · 심리 게임', desc: '머리싸움과 블러핑의 진수', games: ['gems', 'werewolf', 'coup'] },
 ];
 
@@ -13,7 +13,7 @@ const timeChoices = (list) => list.map((s) => [s, s >= 60 && s % 60 === 0 ? `${s
 
 export const GAMES = {
   liar: {
-    name: '라이어 게임', cat: 'party', min: 3, max: 8, hot: true, time: '10분', chat: true,
+    name: '라이어 게임', en: 'LIAR GAME', cat: 'party', min: 3, max: 8, hot: true, time: '10분', chat: true,
     short: '제시어를 모르는 라이어를 찾아라!',
     rules: [
       '라이어 한 명을 뺀 모두가 같은 제시어를 받아요. 라이어는 주제만 알아요.',
@@ -29,7 +29,7 @@ export const GAMES = {
     ],
   },
   mafia: {
-    name: '마피아', cat: 'party', min: 5, max: 12, hot: true, time: '15분', chat: true,
+    name: '마피아', en: 'MAFIA', cat: 'party', min: 5, max: 12, hot: true, time: '15분', chat: true,
     short: '밤에는 숨고, 낮에는 속여라',
     rules: [
       '마피아, 경찰, 의사, 시민 역할이 비밀리에 정해져요.',
@@ -42,20 +42,22 @@ export const GAMES = {
       { key: 'discuss', label: '낮 토론 시간', choices: timeChoices([60, 90, 120, 180]), def: 90 },
     ],
   },
-  roundtable: {
-    name: '원탁의 스파이', cat: 'party', min: 5, max: 10, time: '30분', chat: true,
-    short: '원정대 속에 숨은 배신자를 찾아라',
+  avalon: {
+    name: '아발론', en: 'THE RESISTANCE AVALON', cat: 'party', min: 5, max: 10, hot: true, time: '30분',
+    external: '/avalon/', badge: '영상',
+    short: '얼굴을 보며 속이고 추리하는 원탁의 밤',
     rules: [
-      '선의 편과 악의 편으로 나뉘어요. 악의 편은 서로를 알고 있어요.',
-      '멀린은 악의 편을 모두 알고, 퍼시벌은 멀린 후보(멀린·모르가나)를 알아요. (7명 이상)',
+      '선의 세력과 악의 세력으로 나뉘어요. 악의 세력은 서로를 알고 있어요.',
+      '멀린은 악을 알고(모드레드 제외), 퍼시벌은 멀린을 알아요. 모르가나가 있으면 둘 중 누가 멀린인지 몰라요.',
       '대표가 원정대를 고르면 모두 찬성/반대 투표를 해요. 5번 연속 부결되면 악의 승리!',
-      '원정대원은 몰래 성공/실패 카드를 내요. 선의 편은 성공만 낼 수 있어요.',
-      '원정 3번 성공 시 암살자가 멀린을 찾아 암살해요. 맞히면 악, 틀리면 선의 승리!',
+      '원정대원은 몰래 성공/실패 카드를 내요. 선의 세력은 성공만 낼 수 있어요.',
+      '원정 3번 성공 시 암살자가 멀린을 지목해요. 맞히면 악, 틀리면 선의 승리!',
+      '카메라·마이크로 얼굴을 보며 토론하고, 사회자 음성이 진행해요. 인원이 부족하면 CPU 기사를 추가할 수 있어요.',
     ],
     options: [],
   },
   werewolf: {
-    name: '하룻밤 늑대인간', cat: 'party', min: 3, max: 10, time: '10분', chat: true,
+    name: '하룻밤 늑대인간', en: 'ONE NIGHT WEREWOLF', cat: 'party', min: 3, max: 10, time: '10분', chat: true,
     short: '단 하룻밤, 늑대인간을 찾아라',
     rules: [
       '모두 비밀 역할을 받아요. 가운데에는 역할 카드 3장이 놓여요.',
@@ -70,7 +72,7 @@ export const GAMES = {
     ],
   },
   coup: {
-    name: '쿠데타', cat: 'party', min: 2, max: 6, bots: true, lastWins: true, time: '15분',
+    name: '쿠데타', en: 'COUP', cat: 'party', min: 2, max: 6, bots: true, lastWins: true, time: '15분',
     short: '거짓말과 블러핑으로 권력을 차지하라',
     rules: [
       '모두 비밀 인물 카드 2장과 동전 2개로 시작해요. 카드를 모두 잃으면 탈락!',
@@ -83,7 +85,7 @@ export const GAMES = {
     options: [],
   },
   drawguess: {
-    name: '그림 맞히기', cat: 'draw', min: 3, max: 8, hot: true, time: '10분',
+    name: '그림 맞히기', en: 'DRAW AND GUESS', cat: 'draw', min: 3, max: 8, hot: true, time: '10분',
     short: '그림을 보고 제시어를 맞혀라',
     rules: [
       '차례가 되면 제시어 3개 중 하나를 골라 그림을 그려요.',
@@ -97,7 +99,7 @@ export const GAMES = {
     ],
   },
   relay: {
-    name: '그림 릴레이', cat: 'draw', min: 4, max: 10, time: '15분',
+    name: '그림 릴레이', en: 'DRAWING RELAY', cat: 'draw', min: 4, max: 10, time: '15분',
     short: '문장 → 그림 → 문장, 어디까지 변할까?',
     rules: [
       '처음에 각자 재미있는 문장(제시어)을 적어요.',
@@ -110,7 +112,7 @@ export const GAMES = {
     ],
   },
   wordspy: {
-    name: '단어 스파이', cat: 'draw', min: 4, max: 8, time: '15분', chat: true,
+    name: '단어 스파이', en: 'WORD SPY', cat: 'draw', min: 4, max: 8, time: '15분', chat: true,
     short: '한 단어 힌트로 우리 팀 요원을 찾아라',
     rules: [
       '빨강 팀과 파랑 팀으로 나뉘고, 팀마다 스파이 마스터 한 명이 정해져요.',
@@ -122,7 +124,7 @@ export const GAMES = {
     options: [],
   },
   rummy: {
-    name: '러미 타일', cat: 'card', min: 2, max: 4, hot: true, bots: true, lastWins: true, time: '15분',
+    name: '러미 타일', en: 'RUMMY TILES', cat: 'card', min: 2, max: 4, hot: true, bots: true, lastWins: true, time: '15분',
     short: '숫자 타일로 조합을 만들어 먼저 털어내라',
     rules: [
       '1~13 숫자 타일(4가지 색 × 2세트)과 조커 2개로 해요. 처음에 14개씩 받아요.',
@@ -137,7 +139,7 @@ export const GAMES = {
     ],
   },
   onecard: {
-    name: '컬러 원카드', cat: 'card', min: 2, max: 8, bots: true, lastWins: true, time: '10분',
+    name: '컬러 원카드', en: 'COLOR ONE CARD', cat: 'card', min: 2, max: 8, bots: true, lastWins: true, time: '10분',
     short: '같은 색, 같은 숫자! 카드를 먼저 털어라',
     rules: [
       '7장씩 받고 시작해요. 바닥 카드와 같은 색 또는 같은 숫자·기호의 카드를 낼 수 있어요.',
@@ -149,7 +151,7 @@ export const GAMES = {
     options: [],
   },
   numbercode: {
-    name: '숫자 암호', cat: 'card', min: 2, max: 4, bots: true, lastWins: true, time: '10분',
+    name: '숫자 암호', en: 'NUMBER CODE', cat: 'card', min: 2, max: 4, bots: true, lastWins: true, time: '10분',
     short: '상대의 숨겨진 숫자를 추리하라',
     rules: [
       '0~11이 적힌 검은색·흰색 타일을 나눠 가져요. 타일은 항상 작은 숫자부터 정렬돼요. (같은 숫자면 검은색이 왼쪽)',
@@ -161,7 +163,7 @@ export const GAMES = {
     options: [],
   },
   fruitbell: {
-    name: '과일 종치기', cat: 'card', min: 2, max: 6, bots: true, lastWins: true, time: '5분',
+    name: '과일 종치기', en: 'FRUIT BELL', cat: 'card', min: 2, max: 6, bots: true, lastWins: true, time: '5분',
     short: '같은 과일이 5개가 되면 종을 쳐라!',
     rules: [
       '카드를 똑같이 나눠 가진 뒤, 차례대로 한 장씩 뒤집어요.',
@@ -174,7 +176,7 @@ export const GAMES = {
     options: [],
   },
   gems: {
-    name: '보석 상인', cat: 'card', min: 2, max: 4, bots: true, lastWins: true, time: '25분',
+    name: '보석 상인', en: 'GEM MERCHANT', cat: 'card', min: 2, max: 4, bots: true, lastWins: true, time: '25분',
     short: '보석을 모아 최고의 상인이 되어라',
     rules: [
       '내 차례에 한 가지 행동: 서로 다른 보석 3개 가져오기 / 같은 보석 2개 가져오기(4개 이상 남았을 때) / 카드 예약(+황금) / 카드 구매.',
@@ -186,7 +188,7 @@ export const GAMES = {
     options: [],
   },
   omok: {
-    name: '오목', cat: 'board', min: 2, max: 2, hot: true, bots: true, lastWins: true, time: '5분',
+    name: '오목', en: 'GOMOKU', cat: 'board', min: 2, max: 2, hot: true, bots: true, lastWins: true, time: '5분',
     short: '다섯 개를 먼저 한 줄로 놓아라',
     rules: [
       '흑과 백이 번갈아 돌을 놓아요. 흑이 먼저 둬요.',
@@ -200,7 +202,7 @@ export const GAMES = {
     ],
   },
   reversi: {
-    name: '리버시', cat: 'board', min: 2, max: 2, bots: true, lastWins: true, time: '10분',
+    name: '리버시', en: 'REVERSI', cat: 'board', min: 2, max: 2, bots: true, lastWins: true, time: '10분',
     short: '상대 돌을 사이에 두고 뒤집어라',
     rules: [
       '상대 돌을 내 돌 두 개 사이에 끼우도록 두면 끼인 돌이 모두 내 색으로 뒤집혀요.',
@@ -212,7 +214,7 @@ export const GAMES = {
     ],
   },
   yacht: {
-    name: '요트 다이스', cat: 'board', min: 1, max: 4, hot: true, bots: true, lastWins: true, time: '10분',
+    name: '요트 다이스', en: 'YACHT DICE', cat: 'board', min: 1, max: 4, hot: true, bots: true, lastWins: true, time: '10분',
     short: '주사위 5개로 최고의 족보를 완성하라',
     rules: [
       '내 차례에 주사위 5개를 최대 3번 굴릴 수 있어요. 원하는 주사위는 눌러서 고정해요.',
@@ -224,6 +226,8 @@ export const GAMES = {
     options: [],
   },
 };
+
+export const GENRES = { party: '파티 · 추리', draw: '그림 · 단어', card: '카드 · 타일', board: '보드 · 주사위' };
 
 export const GAME_IDS = CATEGORIES.flatMap((c) => c.games);
 
