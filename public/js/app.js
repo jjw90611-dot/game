@@ -511,6 +511,7 @@ function renderRoom() {
       <div class="room-actions">
         <button class="btn sm" type="button" id="btn-members" title="참가자">👥<span class="lbl"> 참가자</span></button>
         <button class="btn sm" type="button" id="btn-invite" title="초대하기">🔗<span class="lbl"> 초대</span></button>
+        <button class="btn sm" type="button" id="btn-sound" title="소리 켜기/끄기">${localStorage.getItem('bg_mute') === '1' ? '🔇' : '🔊'}</button>
         <button class="btn sm" type="button" id="btn-rules" title="게임 방법">❓<span class="lbl"> 방법</span></button>
         <button class="btn sm" type="button" id="btn-leave" title="나가기">🚪<span class="lbl"> 나가기</span></button>
       </div>
@@ -541,6 +542,12 @@ function renderRoom() {
     } else send({ t: 'leave' });
   };
   $('#btn-rules').onclick = () => rulesModal(r.game);
+  $('#btn-sound').onclick = (e) => {
+    const mute = localStorage.getItem('bg_mute') !== '1';
+    localStorage.setItem('bg_mute', mute ? '1' : '0');
+    e.currentTarget.textContent = mute ? '🔇' : '🔊';
+    toast(mute ? '소리를 껐어요.' : '소리를 켰어요.');
+  };
   $('#btn-invite').onclick = invite;
   $('#btn-members').onclick = () => {
     const room = $('.room');

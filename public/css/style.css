@@ -438,6 +438,8 @@ select.input { padding-top: 0; appearance: none; background-image: linear-gradie
   .gp-hero h1, .gp-hero .gp-short { padding-right: 112px; }
   .gp-hero .gp-actions .btn { flex: 1; }
   .room-top { padding: 8px 10px; gap: 6px; }
+  .room-actions { gap: 4px; }
+  .room-actions .btn.sm { padding: 2px 8px 0; min-width: 34px; }
   .room-title .ricon { display: none; }
   .seats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .seat { min-height: 84px; padding: 8px 4px; gap: 4px; border-radius: 12px; }
