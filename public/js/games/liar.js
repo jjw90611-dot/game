@@ -24,7 +24,7 @@ export default function create() {
       const list = v.hints.filter((h) => h.pid === p.id).map((h) => `<span class="lr-h">${esc(h.text)}</span>`).join('');
       const speaking = v.phase === 'hint' && v.hinter === p.id && !v.over;
       const liarMark = v.over && v.answer?.liar === p.id;
-      return `<div class="lr-row ${speaking ? 'speaking' : ''} ${v.gone[p.id] ? 'gone' : ''} ${liarMark ? 'liar' : ''}">
+      return `<div data-pid="${esc(p.id)}" class="lr-row ${speaking ? 'speaking' : ''} ${v.gone[p.id] ? 'gone' : ''} ${liarMark ? 'liar' : ''}">
         ${avatar(p.id, p.name, 'sm')}<div class="lr-name">${name(p.id)}${p.id === me ? ' <em class="tag me">나</em>' : ''}${liarMark ? ' <span class="tag" style="background:#ffe3e3;color:#c92a2a">라이어</span>' : ''}</div>
         <div class="lr-hints">${list || (speaking ? '<span class="lr-typing">설명 중…</span>' : '<span class="muted small">-</span>')}</div>
         ${v.voteResult?.count?.[p.id] ? `<span class="lr-votes">🗳️ ${v.voteResult.count[p.id]}</span>` : ''}

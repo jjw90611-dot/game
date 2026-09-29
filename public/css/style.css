@@ -660,3 +660,95 @@ body[data-page="room"] .footer, body[data-page="room"] .tabbar { display: none !
   .modal-back { align-items: flex-end; padding: 0; }
   .modal { border-radius: 20px 20px 0 0; max-height: 88dvh; padding-bottom: var(--safe-b); }
 }
+
+/* ───────── 음성 채팅 ───────── */
+.voice-ctl { display: flex; gap: 6px; flex: none; }
+.vbtn.rec { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 4px 14px rgba(31, 107, 255, .35); }
+.vbtn.mic.on { background: #e8f8ee; border-color: #8ce0a8; color: #147a3d; }
+.vbtn.mic.off { background: #fff1f1; border-color: #ffc2c2; color: #c92a2a; }
+.vbtn.mic.talk { box-shadow: 0 0 0 3px rgba(34, 197, 94, .35); }
+.vbtn .ico { width: 17px; height: 17px; }
+.vstate { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; flex: none; }
+.vstate .ico { width: 13px; height: 13px; margin: 0; }
+.vstate.on { background: #e8f8ee; color: #147a3d; }
+.vstate.off { background: #fff1f1; color: #c92a2a; }
+.vtalk .avatar { box-shadow: 0 0 0 3px #22c55e, 0 0 14px rgba(34, 197, 94, .7); transition: box-shadow .12s; }
+.voice-invite { display: flex; align-items: center; gap: 12px; background: linear-gradient(110deg, #eef3ff, #f5efff); border: 1px solid #d6e0ff; border-radius: 16px; padding: 12px 14px; }
+.voice-invite .vi-ico { width: 42px; height: 42px; border-radius: 12px; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+.voice-invite .vi-ico .ico { width: 22px; height: 22px; }
+.voice-invite div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.voice-invite b { font-size: 14.5px; }
+.voice-invite small { color: var(--ink-3); font-size: 12.5px; }
+@media (max-width: 980px) {
+  .voice-ctl .btn .lbl { display: none; }
+  .voice-ctl .btn { width: 36px; min-height: 34px; padding: 0; }
+}
+@media (max-width: 720px) {
+  .voice-invite { flex-wrap: wrap; }
+  .voice-invite .btn { width: 100%; }
+}
+
+/* ───────── 게임 설명서 ───────── */
+.bdg.new { background: #12b886; }
+.bdg.voice { background: #1f6bff; }
+.guide-panel .panel-head { border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+.guide { padding: 6px 22px 24px; }
+.guide.compact { padding: 0; }
+.gd-toc { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 0 4px; position: sticky; top: var(--top-h); background: #fff; z-index: 2; }
+.gd-toc a { font-size: 13px; font-weight: 700; color: var(--ink-2); padding: 7px 12px 5px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); }
+.gd-toc a:hover { color: var(--brand); border-color: #c9d6f5; }
+.gd-sec { padding-top: 26px; scroll-margin-top: calc(var(--top-h) + 60px); }
+.gd-sec h3 { font-size: 18px; letter-spacing: -.4px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.gd-sec h3::before { content: ''; width: 4px; height: 17px; border-radius: 2px; background: var(--brand); margin-top: -3px; }
+.guide.compact .gd-sec { padding-top: 18px; }
+.guide.compact .gd-sec:first-child { padding-top: 4px; }
+.gd-intro { padding-top: 18px; }
+.gd-lead { font-size: 16px; line-height: 1.75; color: var(--ink); }
+.gd-goal, .gd-voice { display: flex; gap: 12px; align-items: flex-start; margin-top: 14px; padding: 14px 16px; border-radius: 14px; }
+.gd-goal { background: linear-gradient(110deg, #fff8e6, #fff3d1); border: 1px solid #ffe29a; }
+.gd-goal > span, .gd-voice > span { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex: none; color: #fff; }
+.gd-goal > span { background: #f59f00; }
+.gd-voice { background: #eef3ff; border: 1px solid #d6e0ff; }
+.gd-voice > span { background: var(--brand); }
+.gd-goal .ico, .gd-voice .ico { width: 19px; height: 19px; }
+.gd-goal b { font-size: 14px; color: #8a5a00; }
+.gd-goal p, .gd-voice p { font-size: 14.5px; color: var(--ink-2); line-height: 1.6; margin-top: 2px; }
+.gd-voice p { margin-top: 7px; }
+.gd-flow { list-style: none; margin: 0; padding: 0; position: relative; }
+.gd-flow li { display: flex; gap: 14px; position: relative; padding-bottom: 18px; }
+.gd-flow li:not(:last-child)::before { content: ''; position: absolute; left: 15px; top: 34px; bottom: 2px; width: 2px; background: #dfe6f3; }
+.gd-n { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; padding-top: 3px; box-shadow: 0 4px 10px rgba(31, 107, 255, .3); }
+.gd-flow b { font-size: 15.5px; display: block; padding-top: 5px; }
+.gd-flow p { font-size: 14.5px; color: var(--ink-2); line-height: 1.7; margin-top: 3px; }
+.gd-roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.gd-role { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 10px; background: #fff; border-top: 4px solid #adb5bd; }
+.gd-role.good { border-top-color: #1f6bff; }
+.gd-role.bad { border-top-color: #e5484d; }
+.gd-role b { font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.gd-role b em { font-style: normal; font-size: 10.5px; padding: 2px 6px 0; border-radius: 5px; background: var(--brand-soft); color: var(--brand-2); }
+.gd-role.bad b em { background: #ffe3e3; color: #c92a2a; }
+.gd-role p { font-size: 13.5px; color: var(--ink-2); margin-top: 5px; line-height: 1.6; }
+.gd-win, .gd-tips, .gd-ctl { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.gd-win li, .gd-tips li, .gd-ctl li { position: relative; padding: 11px 14px 9px 42px; border-radius: 12px; font-size: 14.5px; line-height: 1.6; color: var(--ink-2); background: var(--panel-2); }
+.gd-win li::before, .gd-tips li::before, .gd-ctl li::before { position: absolute; left: 14px; top: 10px; font-weight: 700; }
+.gd-win li { background: #f0fbf3; }
+.gd-win li::before { content: '✓'; color: #2f9e44; }
+.gd-tips li::before { content: '💡'; font-size: 14px; }
+.gd-ctl li::before { content: '▸'; color: var(--brand); }
+.gd-faq { display: flex; flex-direction: column; gap: 8px; }
+.gd-faq details { border: 1px solid var(--line); border-radius: 12px; padding: 0 14px; background: #fff; }
+.gd-faq summary { cursor: pointer; font-weight: 700; font-size: 14.5px; padding: 13px 0 11px; list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+.gd-faq summary::-webkit-details-marker { display: none; }
+.gd-faq summary::after { content: '+'; color: var(--ink-3); font-size: 18px; line-height: 1; }
+.gd-faq details[open] summary::after { content: '−'; }
+.gd-faq details p { font-size: 14px; color: var(--ink-2); padding: 0 0 13px; line-height: 1.7; }
+.small-rules li { font-size: 13.5px; }
+@media (max-width: 720px) {
+  .guide { padding: 0 14px 18px; }
+  .gd-toc { top: var(--top-h); margin: 0 -14px; padding: 10px 14px 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .gd-toc a { white-space: nowrap; }
+  .gd-lead { font-size: 15px; }
+  .gd-roles { grid-template-columns: 1fr; }
+}
+.gp-main, .gp-side { min-width: 0; }
+@media (max-width: 980px) { .gp-body { grid-template-columns: minmax(0, 1fr); } }

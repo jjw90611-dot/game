@@ -146,7 +146,7 @@ export class Hub extends DurableObject {
         const u = a && this.users.get(a.uid);
         if (!u || !u.sockets.has(ws)) return;
         if (!this.rateOk(u, m.t)) {
-          if (m.t !== 'draw') this.send(ws, { t: 'err', msg: '너무 빨라요! 잠시 후 다시 시도해 주세요.' });
+          if (m.t !== 'draw' && m.t !== 'rtc') this.send(ws, { t: 'err', msg: '너무 빨라요! 잠시 후 다시 시도해 주세요.' });
         } else this.handle(u, m);
       }
     } catch (e) {
@@ -170,8 +170,8 @@ export class Hub extends DurableObject {
   }
 
   rateOk(u, t) {
-    const kind = t === 'draw' ? 'draw' : t === 'chat' || t === 'lchat' ? 'chat' : 'gen';
-    const [cap, perSec] = { draw: [120, 60], chat: [6, 1.5], gen: [30, 12] }[kind];
+    const kind = t === 'draw' ? 'draw' : t === 'rtc' ? 'rtc' : t === 'chat' || t === 'lchat' ? 'chat' : 'gen';
+    const [cap, perSec] = { draw: [120, 60], rtc: [240, 80], chat: [6, 1.5], gen: [30, 12] }[kind];
     const now = Date.now();
     const b = (u.rl[kind] ||= { tokens: cap, at: now });
     b.tokens = Math.min(cap, b.tokens + ((now - b.at) / 1000) * perSec);
@@ -244,6 +244,7 @@ export class Hub extends DurableObject {
       if (mem) {
         mem.online = false;
         mem.offAt = Date.now();
+        mem.voice = false;
       }
       this.touchRoom(room);
       this.scheduleKick();
@@ -270,6 +271,8 @@ export class Hub extends DurableObject {
       case 'act': return this.onAct(u, m.a);
       case 'draw': return this.onDraw(u, m.d);
       case 'fetch': return this.onFetch(u, m.key);
+      case 'voice': return this.onVoice(u, m);
+      case 'rtc': return this.onRtc(u, m);
     }
   }
 
@@ -563,6 +566,28 @@ export class Hub extends DurableObject {
     this.touchRoom(room);
   }
 
+  // ─── 음성 채팅 (연결 신호만 전달, 소리는 참가자끼리 직접 주고받아요) ───
+  onVoice(u, m) {
+    const room = this.requireRoom(u);
+    const mem = room.members[u.uid];
+    if (!mem) return;
+    const on = !!m.on;
+    const mic = on && !!m.mic;
+    if (mem.voice === on && !!mem.mic === mic) return;
+    mem.voice = on;
+    mem.mic = mic;
+    this.touchRoom(room);
+  }
+
+  onRtc(u, m) {
+    const room = this.roomOf(u.uid);
+    const to = String(m.to ?? '');
+    if (!room || !room.members[u.uid]?.voice || !room.members[to] || room.members[to].bot || to === u.uid) return;
+    const d = m.d;
+    if (!d || typeof d !== 'object' || JSON.stringify(d).length > 16000) return;
+    this.sendUser(to, { t: 'rtc', from: u.uid, d });
+  }
+
   onTitle(u, title) {
     const room = this.requireHost(u);
     const t = cleanText(title, 24);
@@ -801,7 +826,10 @@ export class Hub extends DurableObject {
     return {
       id: r.id, no: r.no, game: r.game, title: r.title, private: r.private, host: r.host, status: r.status,
       opts: r.opts, seats: r.seats, result: r.result, round: r.round || 0,
-      members: Object.values(r.members).map((m) => ({ uid: m.uid, name: m.name, bot: m.bot || undefined, online: m.online, watch: m.watch || undefined })),
+      members: Object.values(r.members).map((m) => ({
+        uid: m.uid, name: m.name, bot: m.bot || undefined, online: m.online, watch: m.watch || undefined,
+        voice: m.voice || undefined, mic: m.voice ? !!m.mic : undefined,
+      })),
     };
   }
 

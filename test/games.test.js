@@ -69,6 +69,39 @@ const RANDOM = {
     if (r < 0.4) return { type: 'block', role: pickOne(['duke', 'contessa', 'captain', 'ambassador']) };
     return { type: 'pass' };
   },
+  indian(st) {
+    const r = Math.random();
+    const pid = st.players[st.turn]?.id;
+    if (r < 0.2) return { _as: pid, type: 'raise', amt: 1 + rand(4) };
+    if (r < 0.6) return { _as: pid, type: 'call' };
+    return { _as: pid, type: 'fold' };
+  },
+  dice(st) {
+    const pid = st.players[st.turn]?.id;
+    if (Math.random() < 0.3) return { _as: pid, type: 'call' };
+    return { _as: pid, type: 'bid', q: 1 + rand(8), f: 1 + rand(6) };
+  },
+  rankwar(st, pid) {
+    const hand = st.hands[st.turnId] || [];
+    if (Math.random() < 0.3) return { _as: st.turnId, type: 'pass' };
+    const c = hand[rand(hand.length)];
+    return { _as: st.turnId, type: 'play', cards: hand.filter((x) => x === c || x === 13).slice(0, 1 + rand(3)) };
+  },
+  spotit(st, pid) {
+    return { type: 'match', sym: rand(57), center: st.center };
+  },
+  yut(st) {
+    const pid = st.players[st.turn].id;
+    if (st.phase === 'throw') return { _as: pid, type: 'throw' };
+    return { _as: pid, type: 'move', r: rand(st.pend.length + 1), piece: rand(5) };
+  },
+  oneword(st, pid) {
+    if (st.phase === 'guess') return { _as: st.guesser, type: 'guess', text: Math.random() < 0.5 ? st.word : '몰라' };
+    return { type: 'clue', text: pickOne(['사과', '동그란', st.word, '두 단어', '빨강']) };
+  },
+  connect4(st) {
+    return { _as: st.players[st.turn].id, type: 'drop', col: rand(8) };
+  },
   relay(st, pid) {
     if (st.phase === 'album') return { type: 'next', book: st.album.book, page: st.album.page };
     if (Math.random() < 0.5) return { type: 'submit', text: '고양이가 춤춘다' };
@@ -80,6 +113,12 @@ const RANDOM = {
 const CHAT = {
   drawguess(st, pid) {
     return Math.random() < 0.3 && st.word ? st.word : '사과';
+  },
+  song(st) {
+    return Math.random() < 0.2 && st.song ? st.song.title : '몰라요';
+  },
+  chosung(st) {
+    return Math.random() < 0.2 && st.word ? st.word : '몰라요';
   },
 };
 
@@ -192,6 +231,64 @@ test('숨겨진 정보가 다른 사람에게 보이지 않아요', () => {
   const other = nc.players.find((p) => p.id !== 'a').id;
   assert.ok(nv.hands[other].every((t) => t.n === null));
   assert.ok(nv.hands.a.every((t) => t.n !== null));
+});
+
+test('같은 그림 찾기: 어떤 두 카드든 겹치는 그림이 딱 하나', async () => {
+  const { makeCards } = await import('../src/games/spotit.js');
+  const cards = makeCards();
+  assert.equal(cards.length, 57);
+  for (let a = 0; a < cards.length; a++) {
+    assert.equal(new Set(cards[a]).size, 8);
+    for (let b = a + 1; b < cards.length; b++) assert.equal(cards[a].filter((x) => cards[b].includes(x)).length, 1);
+  }
+});
+
+test('윷놀이 지름길과 뒷도', async () => {
+  const { path, back } = await import('../src/games/yut.js');
+  assert.equal(path(null, null, 5).node, 'o5');
+  assert.equal(path('o5', null, 3).node, 'c');
+  assert.equal(path('c', 'A', 3).node, 'o0');
+  assert.equal(path('o10', null, 6).node, 'o0');
+  assert.equal(path('o10', null, 7).node, 'out');
+  assert.equal(path('a2', 'A', 3).node, 'a4');
+  assert.equal(path('o18', null, 3).node, 'out');
+  assert.equal(back('o1', null).node, 'o0');
+  assert.equal(back('c', 'A').node, 'a2');
+});
+
+test('노래 맞히기: 정답 인정 범위와 곡 목록', async () => {
+  const { isAnswer } = await import('../src/games/song.js');
+  const { SONGS } = await import('../src/games/songs.js');
+  const apt = SONGS.latest.find((x) => x.y === 'ekr2nIex040');
+  assert.ok(isAnswer(apt, 'apt'));
+  assert.ok(isAnswer(apt, '아파트'));
+  assert.ok(!isAnswer(apt, '아파'));
+  const ids = new Set();
+  for (const list of Object.values(SONGS)) for (const x of list) {
+    assert.match(x.y, /^[A-Za-z0-9_-]{11}$/, x.title);
+    assert.ok(!ids.has(x.y), `중복 곡 ${x.title}`);
+    ids.add(x.y);
+  }
+});
+
+test('초성 변환', async () => {
+  const { chosung } = await import('../src/games/chosung.js');
+  assert.equal(chosung('김치찌개'), 'ㄱㅊㅉㄱ');
+});
+
+test('인디언 포커: 내 카드는 안 보이고 남의 카드는 보여요', () => {
+  const ctx = { now: 1, rng: Math.random, sys: () => {}, vol: {} };
+  const ps = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }];
+  const s = MODULES.indian.setup(ps, {}, ctx);
+  const v = MODULES.indian.view(s, 'a');
+  assert.equal(v.cards.a, null);
+  assert.equal(v.cards.b, s.cards.b);
+  const d = MODULES.dice.setup(ps, {}, ctx);
+  const dv = MODULES.dice.view(d, 'a');
+  assert.deepEqual(dv.dice.a, d.dice.a);
+  assert.equal(dv.dice.b, null);
+  const o = MODULES.oneword.setup(ps, {}, ctx);
+  assert.equal(MODULES.oneword.view(o, o.guesser).word, null);
 });
 
 test('오목 쌍삼 금지', async () => {
