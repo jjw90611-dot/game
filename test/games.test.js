@@ -54,6 +54,29 @@ const RANDOM = {
     if (r < 0.9) return { _as: Math.random() < 0.9 ? pickOne(ops) : pid, type: 'guess', i: rand(25) };
     return { _as: pickOne(ops), type: 'end' };
   },
+  werewolf(st, pid) {
+    const ids = st.players.map((p) => p.id);
+    const r = Math.random();
+    if (st.phase === 'night') {
+      if (r < 0.3) return { type: 'night', target: pickOne(ids) };
+      if (r < 0.5) return { type: 'night', targets: [pickOne(ids), pickOne(ids)] };
+      if (r < 0.7) return { type: 'night', center: rand(3), centers: [0, 2] };
+      return { type: 'night' };
+    }
+    if (st.phase === 'day') return { type: 'skip' };
+    return { type: 'vote', target: pickOne(ids) };
+  },
+  coup(st, pid) {
+    const ids = st.players.map((p) => p.id);
+    const r = Math.random();
+    const acts = ['income', 'foreign', 'coup', 'tax', 'assassinate', 'steal', 'exchange'];
+    if (st.phase === 'action') return { _as: st.players[st.turn].id, type: 'act', action: pickOne(acts), target: pickOne(ids) };
+    if (st.phase === 'lose') return { _as: st.pending.loser, type: 'lose', i: rand(2) };
+    if (st.phase === 'exchange') return { _as: st.pending.actor, type: 'keep', idx: [0, 1, 2, 3].slice(0, 1 + rand(2)) };
+    if (r < 0.2) return { type: 'challenge' };
+    if (r < 0.4) return { type: 'block', role: pickOne(['duke', 'contessa', 'captain', 'ambassador']) };
+    return { type: 'pass' };
+  },
   relay(st, pid) {
     if (st.phase === 'album') return { type: 'next', book: st.album.book, page: st.album.page };
     if (Math.random() < 0.5) return { type: 'submit', text: '고양이가 춤춘다' };
@@ -217,4 +240,88 @@ test('요트 점수 계산', async () => {
   assert.equal(scoreFor('yacht', [6, 6, 6, 6, 6]), 50);
   assert.equal(scoreFor('fourkind', [5, 5, 5, 5, 1]), 21);
   assert.equal(scoreFor('threes', [3, 3, 1, 2, 3]), 9);
+});
+
+test('쿠데타: 의심과 막기 흐름', async () => {
+  const coup = (await import('../src/games/coup.js')).default;
+  const ctx = { now: 1, rng: Math.random, sys: () => {}, vol: {} };
+  const players = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }];
+  const fresh = () => {
+    const s = coup.setup(players, {}, ctx);
+    s.players = players.slice();
+    s.turn = 0;
+    s.coins = { a: 3, b: 2, c: 2 };
+    return s;
+  };
+  const total = (s) => s.deck.length + Object.values(s.hands).flat().length;
+  // 진짜 공작의 세금을 의심 → 의심한 사람이 카드를 잃음
+  let s = fresh();
+  s.hands.a = [{ role: 'duke', dead: false }, { role: 'captain', dead: false }];
+  coup.action(s, 'a', { type: 'act', action: 'tax' }, ctx);
+  coup.action(s, 'b', { type: 'challenge' }, ctx);
+  assert.equal(s.phase, 'lose');
+  assert.equal(s.pending.loser, 'b');
+  coup.action(s, 'b', { type: 'lose', i: 0 }, ctx);
+  assert.equal(s.coins.a, 6);
+  assert.equal(total(s), 15);
+  // 가짜 공작 → 거짓말한 사람이 카드를 잃고 동전 없음
+  s = fresh();
+  s.hands.a = [{ role: 'contessa', dead: false }, { role: 'captain', dead: false }];
+  coup.action(s, 'a', { type: 'act', action: 'tax' }, ctx);
+  coup.action(s, 'c', { type: 'challenge' }, ctx);
+  assert.equal(s.pending.loser, 'a');
+  coup.action(s, 'a', { type: 'lose', i: 1 }, ctx);
+  assert.equal(s.coins.a, 3);
+  assert.equal(s.hands.a[1].dead, true);
+  // 암살 → 가짜 백작부인으로 막기 → 의심 → 두 장 모두 잃고 탈락
+  s = fresh();
+  s.hands.a = [{ role: 'assassin', dead: false }, { role: 'duke', dead: false }];
+  s.hands.b = [{ role: 'duke', dead: false }, { role: 'captain', dead: false }];
+  coup.action(s, 'a', { type: 'act', action: 'assassinate', target: 'b' }, ctx);
+  assert.equal(s.coins.a, 0);
+  coup.action(s, 'b', { type: 'block', role: 'contessa' }, ctx);
+  assert.equal(s.phase, 'blockrespond');
+  coup.action(s, 'a', { type: 'challenge' }, ctx);
+  assert.equal(s.pending.loser, 'b');
+  coup.action(s, 'b', { type: 'lose', i: 0 }, ctx);
+  // 막기 실패 → 암살 진행 → 마지막 카드 자동 제거
+  assert.ok(s.hands.b.every((c) => c.dead));
+  assert.equal(s.turn, 2);
+  assert.equal(total(s), 15);
+  // 갈취를 진짜 사령관으로 막기 → 아무도 의심 안 함 → 막힘
+  s = fresh();
+  s.hands.b = [{ role: 'captain', dead: false }, { role: 'duke', dead: false }];
+  coup.action(s, 'a', { type: 'act', action: 'steal', target: 'b' }, ctx);
+  coup.action(s, 'b', { type: 'block', role: 'captain' }, ctx);
+  coup.action(s, 'a', { type: 'pass' }, ctx);
+  coup.action(s, 'c', { type: 'pass' }, ctx);
+  assert.equal(s.coins.b, 2);
+  assert.equal(s.turn, 1);
+});
+
+test('하룻밤 늑대인간: 밤 순서와 승패', async () => {
+  const ww = (await import('../src/games/werewolf.js')).default;
+  const ctx = { now: 1, rng: Math.random, sys: () => {}, vol: {} };
+  const players = ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id.toUpperCase() }));
+  const s = ww.setup(players, {}, ctx);
+  s.players = players.slice();
+  Object.assign(s.initial, { a: 'werewolf', b: 'seer', c: 'robber', d: 'troublemaker' });
+  Object.assign(s.cards, s.initial);
+  s.center = ['werewolf', 'villager', 'insomniac'];
+  ww.action(s, 'a', { type: 'night', center: 1 }, ctx);
+  ww.action(s, 'b', { type: 'night', target: 'c' }, ctx);
+  ww.action(s, 'c', { type: 'night', target: 'a' }, ctx); // 강도가 늑대인간 카드를 훔침
+  ww.action(s, 'd', { type: 'night', targets: ['c', 'b'] }, ctx); // 말썽쟁이가 강도(이제 늑대)와 예언자를 바꿈
+  ww.timeout(s, { ...ctx, now: s.deadline });
+  assert.equal(s.cards.a, 'robber');
+  assert.equal(s.cards.b, 'werewolf');
+  assert.equal(s.cards.c, 'seer');
+  assert.match(s.info.b[0], /강도/); // 예언자는 바뀌기 전 카드를 봄
+  assert.match(s.info.c[0], /늑대인간/);
+  // b(현재 늑대인간)에게 투표 → 마을 승리
+  ww.timeout(s, { ...ctx, now: s.deadline });
+  for (const id of ['a', 'c', 'd']) ww.action(s, id, { type: 'vote', target: 'b' }, ctx);
+  ww.action(s, 'b', { type: 'vote', target: 'a' }, ctx);
+  assert.deepEqual(s.dead, ['b']);
+  assert.ok(s.over.winners.includes('a') && s.over.winners.includes('c') && !s.over.winners.includes('b'));
 });

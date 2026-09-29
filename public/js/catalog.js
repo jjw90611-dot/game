@@ -70,7 +70,7 @@ export const GAMES = {
     ],
   },
   coup: {
-    name: '쿠데타', cat: 'party', min: 2, max: 6, bots: true, lastWins: true, time: '15분', chat: true,
+    name: '쿠데타', cat: 'party', min: 2, max: 6, bots: true, lastWins: true, time: '15분',
     short: '거짓말과 블러핑으로 권력을 차지하라',
     rules: [
       '모두 비밀 인물 카드 2장과 동전 2개로 시작해요. 카드를 모두 잃으면 탈락!',

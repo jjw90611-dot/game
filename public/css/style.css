@@ -159,6 +159,7 @@ select.input { padding-top: 0; appearance: none; background-image: linear-gradie
   background: linear-gradient(120deg, #1f2b5b, #2c3f8f 55%, #4b3fb8); color: #fff; box-shadow: var(--shadow);
 }
 .hero h1 { font-size: 24px; letter-spacing: -.5px; }
+.hero h1, .hero p, .hero-actions { position: relative; z-index: 1; }
 .hero p { margin-top: 6px; opacity: .85; font-size: 14px; font-weight: 300; }
 .hero-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 .hero-deco { position: absolute; right: -10px; top: -10px; width: 260px; height: 160px; opacity: .9; pointer-events: none; }
@@ -167,7 +168,7 @@ select.input { padding-top: 0; appearance: none; background-image: linear-gradie
 .cat-head { display: flex; align-items: baseline; gap: 10px; margin: 0 2px 12px; }
 .cat-head h2 { font-size: 20px; letter-spacing: -.4px; }
 .cat-head span { font-size: 13px; color: var(--ink-3); font-weight: 300; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 12px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
 
 .gcard {
   --theme: var(--theme-hot);
@@ -191,7 +192,7 @@ select.input { padding-top: 0; appearance: none; background-image: linear-gradie
 .gcard.t-more { --theme: var(--theme-more); }
 .gcard:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(20, 30, 70, .25); filter: saturate(1.08); }
 .gcard:active { transform: translateY(-1px) scale(.99); }
-.gcard .gname { font-weight: 700; font-size: 15px; letter-spacing: -.3px; text-shadow: 0 1px 3px rgba(0,0,0,.25); display: flex; align-items: center; gap: 6px; }
+.gcard .gname { font-weight: 700; font-size: 15px; letter-spacing: -.3px; text-shadow: 0 1px 3px rgba(0,0,0,.25); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .gcard .gmeta { font-size: 11px; opacity: .88; margin-top: 3px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
 .gcard .gart { position: absolute; right: -2px; bottom: -2px; width: 78%; height: 72%; pointer-events: none; }
 .gcard .gart svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,.18)); }
@@ -425,7 +426,7 @@ select.input { padding-top: 0; appearance: none; background-image: linear-gradie
   .me-chip #me-name { max-width: 84px; }
   .hero { padding: 18px 16px; border-radius: 16px; margin-bottom: 18px; }
   .hero h1 { font-size: 19px; }
-  .hero-deco { width: 170px; height: 110px; right: -24px; opacity: .55; }
+  .hero-deco { width: 170px; height: 110px; right: -24px; opacity: .35; }
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .gcard { height: 136px; padding: 10px 11px; }
   .gcard .gname { font-size: 14px; }
@@ -438,8 +439,18 @@ select.input { padding-top: 0; appearance: none; background-image: linear-gradie
   .gp-hero .gp-actions .btn { flex: 1; }
   .room-top { padding: 8px 10px; gap: 6px; }
   .room-title .ricon { display: none; }
-  .seats { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
-  .seat { min-height: 104px; padding: 10px 6px; }
+  .seats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .seat { min-height: 84px; padding: 8px 4px; gap: 4px; border-radius: 12px; }
+  .seat .avatar.lg { width: 38px; height: 38px; font-size: 16px; }
+  .seat .sname { font-size: 12px; }
+  .seat .tag { font-size: 10px; padding: 2px 6px 0; }
+  .seat.empty { font-size: 11px; }
+  .seat.empty .btn.sm { min-height: 30px; padding: 2px 6px 0; font-size: 11px; }
+  .waiting { gap: 12px; }
+  .wait-head h2 { font-size: 18px; }
+  .wait-head p { font-size: 13px; }
+  .opts { grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 12px 12px; }
+  .wait-actions .btn.lg { min-height: 46px; font-size: 15px; padding: 3px 16px 0; }
   .modal-back { align-items: flex-end; padding: 0; }
   .modal { border-radius: 20px 20px 0 0; max-height: 88dvh; padding-bottom: var(--safe-b); }
 }

@@ -13,10 +13,15 @@ import numbercode from './numbercode.js';
 import fruitbell from './fruitbell.js';
 import relay from './relay.js';
 import reversi from './reversi.js';
+import gems from './gems.js';
+import werewolf from './werewolf.js';
+import coup from './coup.js';
 
 export const MODULES = {
   // 1순위
   liar, mafia, drawguess, rummy, yacht, omok,
   // 2순위
   roundtable, wordspy, onecard, numbercode, fruitbell, relay, reversi,
+  // 3순위
+  gems, werewolf, coup,
 };
