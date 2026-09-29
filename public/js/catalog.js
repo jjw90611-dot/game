@@ -7,13 +7,14 @@ export const CATEGORIES = [
   { id: 'hot', name: '인기 게임', desc: '지금 가장 많이 하는 게임', games: ['liar', 'mafia', 'drawguess', 'rummy', 'yacht', 'omok'] },
   { id: 'rec', name: '추천 게임', desc: '여럿이 모이면 더 재밌는 게임', games: ['avalon', 'wordspy', 'onecard', 'numbercode', 'fruitbell', 'relay', 'reversi'] },
   { id: 'more', name: '전략 · 심리 게임', desc: '머리싸움과 블러핑의 진수', games: ['gems', 'werewolf', 'coup'] },
+  { id: 'new', name: '새로 나온 게임', desc: '요즘 모임에서 가장 많이 하는 게임들', games: ['song', 'indian', 'yut', 'dice', 'rankwar', 'spotit', 'chosung', 'oneword', 'connect4'] },
 ];
 
 const timeChoices = (list) => list.map((s) => [s, s >= 60 && s % 60 === 0 ? `${s / 60}분` : `${s}초`]);
 
 export const GAMES = {
   liar: {
-    name: '라이어 게임', en: 'LIAR GAME', cat: 'party', min: 3, max: 8, hot: true, time: '10분', chat: true,
+    name: '라이어 게임', en: 'LIAR GAME', cat: 'party', min: 3, max: 8, hot: true, time: '10분', chat: true, voice: 'rec',
     short: '제시어를 모르는 라이어를 찾아라!',
     rules: [
       '라이어 한 명을 뺀 모두가 같은 제시어를 받아요. 라이어는 주제만 알아요.',
@@ -29,7 +30,7 @@ export const GAMES = {
     ],
   },
   mafia: {
-    name: '마피아', en: 'MAFIA', cat: 'party', min: 5, max: 12, hot: true, time: '15분', chat: true,
+    name: '마피아', en: 'MAFIA', cat: 'party', min: 5, max: 12, hot: true, time: '15분', chat: true, voice: 'rec', voiceNight: true,
     short: '밤에는 숨고, 낮에는 속여라',
     rules: [
       '마피아, 경찰, 의사, 시민 역할이 비밀리에 정해져요.',
@@ -44,7 +45,7 @@ export const GAMES = {
   },
   avalon: {
     name: '아발론', en: 'THE RESISTANCE AVALON', cat: 'party', min: 5, max: 10, hot: true, time: '30분',
-    external: '/avalon/', badge: '영상',
+    external: '/avalon/', badge: '영상', voice: 'video',
     short: '얼굴을 보며 속이고 추리하는 원탁의 밤',
     rules: [
       '선의 세력과 악의 세력으로 나뉘어요. 악의 세력은 서로를 알고 있어요.',
@@ -57,7 +58,7 @@ export const GAMES = {
     options: [],
   },
   werewolf: {
-    name: '하룻밤 늑대인간', en: 'ONE NIGHT WEREWOLF', cat: 'party', min: 3, max: 10, time: '10분', chat: true,
+    name: '하룻밤 늑대인간', en: 'ONE NIGHT WEREWOLF', cat: 'party', min: 3, max: 10, time: '10분', chat: true, voice: 'rec', voiceNight: true,
     short: '단 하룻밤, 늑대인간을 찾아라',
     rules: [
       '모두 비밀 역할을 받아요. 가운데에는 역할 카드 3장이 놓여요.',
@@ -72,7 +73,7 @@ export const GAMES = {
     ],
   },
   coup: {
-    name: '쿠데타', en: 'COUP', cat: 'party', min: 2, max: 6, bots: true, lastWins: true, time: '15분',
+    name: '쿠데타', en: 'COUP', cat: 'party', min: 2, max: 6, bots: true, lastWins: true, time: '15분', voice: 'rec',
     short: '거짓말과 블러핑으로 권력을 차지하라',
     rules: [
       '모두 비밀 인물 카드 2장과 동전 2개로 시작해요. 카드를 모두 잃으면 탈락!',
@@ -225,7 +226,138 @@ export const GAMES = {
     ],
     options: [],
   },
+  song: {
+    name: '노래 맞히기', en: 'SONG QUIZ', cat: 'draw', min: 1, max: 12, hot: true, chat: true, time: '10분', isNew: true, voice: 'off',
+    short: '딱 1초 듣고 제목을 맞혀라! 연대별 K-POP 퀴즈',
+    rules: [
+      '2000년대 · 2010년대 · 2020년대 · 최신 인기곡 중 원하는 연대를 골라요.',
+      '노래가 딱 1초 나와요. 제목을 알면 채팅창에 입력하세요. 가장 먼저 맞힌 사람이 점수를 얻어요.',
+      '아무도 못 맞히면 3초 → 7초 → 15초로 점점 길게 들려줘요. 빨리 맞힐수록 점수가 높아요 (10 → 7 → 5 → 3점).',
+      '7초부터는 가수 이름, 15초에는 제목 초성이 힌트로 나와요.',
+      '정답이 나오면 뮤직비디오를 잠깐 보여줘요. 정한 곡 수가 끝나면 점수가 가장 높은 사람이 승리!',
+    ],
+    options: [
+      { key: 'era', label: '연대', choices: [['latest', '최신 인기곡'], ['2020', '2020년대'], ['2010', '2010년대'], ['2000', '2000년대'], ['all', '전체 섞기']], def: 'latest' },
+      { key: 'rounds', label: '곡 수', choices: [[10, '10곡'], [15, '15곡'], [5, '5곡 (빠른 판)']], def: 10 },
+    ],
+  },
+  indian: {
+    name: '인디언 포커', en: 'INDIAN POKER', cat: 'card', min: 2, max: 6, bots: true, lastWins: true, time: '15분', isNew: true, voice: 'rec',
+    short: '내 카드만 모른다! 표정과 말로 속이는 심리전',
+    rules: [
+      '1~10 카드가 두 장씩 있어요. 모두 한 장씩 받는데, 내 카드는 나만 못 보고 다른 사람 카드는 모두 보여요.',
+      '매 라운드 참가비 1개를 내고, 차례대로 체크·콜·레이즈·다이 중 하나를 골라요.',
+      '베팅이 끝나면 카드를 공개하고 가장 높은 숫자를 가진 사람이 칩을 모두 가져가요.',
+      '10을 들고 다이하면 벌칙으로 칩 5개를 내야 해요. (설정에서 끌 수 있어요)',
+      '정한 라운드가 끝나거나 한 사람만 칩이 남으면 게임 끝! 칩이 가장 많은 사람이 승리해요.',
+    ],
+    options: [
+      { key: 'chips', label: '시작 칩', choices: [[15, '15개'], [20, '20개'], [30, '30개']], def: 20 },
+      { key: 'rounds', label: '라운드 수', choices: [[10, '10라운드'], [15, '15라운드'], [20, '20라운드']], def: 10 },
+      { key: 'penalty', label: '10 다이 벌칙', choices: [[1, '켜기'], [0, '끄기']], def: 1 },
+    ],
+  },
+  yut: {
+    name: '윷놀이', en: 'YUT NORI', cat: 'board', min: 2, max: 4, bots: true, lastWins: true, time: '15분', isNew: true,
+    short: '도·개·걸·윷·모! 말을 잡고 업고 지름길로',
+    rules: [
+      '윷을 던져 나온 만큼 말을 움직여요. 도 1칸, 개 2칸, 걸 3칸, 윷 4칸, 모 5칸, 뒷도는 1칸 뒤로!',
+      '윷이나 모가 나오면 한 번 더 던져요. 나온 결과는 원하는 순서로 원하는 말에 쓸 수 있어요.',
+      '모서리(꺾이는 칸)와 가운데 방에서 출발하면 대각선 지름길로 가요.',
+      '상대 말이 있는 칸에 도착하면 잡아서 처음으로 돌려보내고 한 번 더 던져요. 내 말끼리 만나면 업어서 함께 움직여요.',
+      '말을 모두 한 바퀴 돌려 출발점(참먹이)을 지나 내보내면 승리!',
+    ],
+    options: [
+      { key: 'pieces', label: '말 개수', choices: [[4, '4개 (정식)'], [3, '3개'], [2, '2개 (빠른 판)']], def: 4 },
+      { key: 'backdo', label: '뒷도', choices: [[1, '켜기'], [0, '끄기']], def: 1 },
+    ],
+  },
+  dice: {
+    name: '라이어 다이스', en: "LIAR'S DICE", cat: 'party', min: 2, max: 6, bots: true, lastWins: true, time: '15분', isNew: true, voice: 'rec',
+    short: '컵 속 주사위로 허세를 부려라. 의심되면 "라이어!"',
+    rules: [
+      '모두 주사위 5개를 컵 속에 몰래 굴려요. 내 주사위만 볼 수 있어요.',
+      '차례대로 "모든 사람의 주사위 중 ○이 △개 이상 있다"고 입찰해요. 개수를 늘리거나, 같은 개수면 더 높은 눈을 불러야 해요.',
+      '앞사람 입찰이 거짓 같으면 "라이어!"를 외쳐요. 모두 주사위를 공개해서 세어 봐요.',
+      '입찰이 맞으면 외친 사람이, 틀리면 입찰한 사람이 주사위 1개를 잃어요. 1은 어떤 눈으로도 셀 수 있어요(설정).',
+      '주사위를 모두 잃으면 탈락! 마지막까지 주사위가 남은 사람이 승리해요.',
+    ],
+    options: [
+      { key: 'dice', label: '시작 주사위', choices: [[5, '5개'], [4, '4개'], [3, '3개 (빠른 판)']], def: 5 },
+      { key: 'wild', label: '1은 만능', choices: [[1, '켜기'], [0, '끄기']], def: 1 },
+    ],
+  },
+  rankwar: {
+    name: '계급 전쟁', en: 'RANK WAR', cat: 'card', min: 4, max: 8, bots: true, time: '20분', isNew: true,
+    short: '왕이 될 것인가, 노예가 될 것인가',
+    rules: [
+      '1은 1장, 2는 2장 … 12는 12장, 광대 2장으로 된 카드를 모두 나눠 가져요. 숫자가 작을수록 강해요.',
+      '선이 같은 숫자 카드를 원하는 만큼(1장 이상) 내면, 다음 사람은 같은 장수로 더 작은 숫자를 내거나 패스해요.',
+      '모두 패스하면 마지막으로 낸 사람이 새로 시작해요. 광대는 다른 숫자와 섞어 그 숫자로 쓸 수 있어요.',
+      '손패를 빨리 비운 순서대로 왕 · 귀족 · 시민 · 하인 · 노예 계급이 정해져요.',
+      '다음 라운드에서 노예는 가장 좋은 카드 2장을 왕에게, 하인은 1장을 귀족에게 바쳐요. 여러 라운드 점수 합계로 승부!',
+    ],
+    options: [
+      { key: 'rounds', label: '라운드 수', choices: [[2, '2라운드'], [3, '3라운드'], [1, '1라운드']], def: 2 },
+    ],
+  },
+  spotit: {
+    name: '같은 그림 찾기', en: 'SPOT THE MATCH', cat: 'card', min: 2, max: 8, bots: true, lastWins: true, time: '5분', isNew: true,
+    short: '두 카드에 딱 하나 겹치는 그림, 누가 먼저 찾을까?',
+    rules: [
+      '카드마다 그림이 8개 있고, 어떤 두 카드든 똑같은 그림이 딱 하나 있어요.',
+      '내 카드와 가운데 카드에서 같은 그림을 찾아 가장 먼저 누르면 가운데 카드를 가져와요.',
+      '가져온 카드가 내 새 카드가 되고, 가운데에는 새 카드가 나와요.',
+      '틀린 그림을 누르면 2초 동안 누를 수 없어요.',
+      '카드가 다 떨어졌을 때 가장 많이 가져온 사람이 승리!',
+    ],
+    options: [
+      { key: 'cards', label: '카드 수', choices: [[30, '30장'], [20, '20장 (빠른 판)'], [45, '45장']], def: 30 },
+    ],
+  },
+  chosung: {
+    name: '초성 퀴즈', en: 'CHOSUNG QUIZ', cat: 'draw', min: 2, max: 12, chat: true, time: '10분', isNew: true, voice: 'off',
+    short: 'ㄱㅊㅉㄱ? 초성만 보고 누구보다 빠르게!',
+    rules: [
+      '주제와 초성(첫 자음)이 나와요. 예) 음식 · ㄱㅊㅉㄱ → 김치찌개',
+      '정답을 알면 채팅창에 입력하세요. 가장 먼저 맞힌 사람이 점수를 얻어요.',
+      '시간이 지나면 글자가 하나씩 공개돼요. 힌트가 나올수록 점수가 줄어요 (10 → 7 → 4점).',
+      '정한 문제 수가 끝나면 점수가 가장 높은 사람이 승리해요.',
+    ],
+    options: [
+      { key: 'rounds', label: '문제 수', choices: [[10, '10문제'], [15, '15문제'], [20, '20문제']], def: 10 },
+    ],
+  },
+  oneword: {
+    name: '한 단어', en: 'JUST ONE WORD', cat: 'draw', min: 3, max: 8, time: '15분', isNew: true,
+    short: '다 같이 힌트 한 단어씩, 겹치면 지워진다!',
+    rules: [
+      '모두 한 팀이에요. 차례대로 한 명이 맞히는 사람이 되고, 나머지는 제시어를 봐요.',
+      '제시어를 보는 사람들은 서로 상의하지 않고 힌트를 딱 한 단어씩 써요.',
+      '다른 사람과 똑같은 힌트를 쓰면 그 힌트들은 모두 지워져요! 너무 뻔한 힌트는 조심하세요.',
+      '맞히는 사람은 남은 힌트만 보고 정답을 말해요. 맞히면 1점, 모르면 패스, 틀리면 카드 1장을 더 잃어요.',
+      '카드를 모두 쓰면 끝! 팀 점수로 우리 팀의 호흡을 평가받아요.',
+    ],
+    options: [
+      { key: 'cards', label: '카드 수', choices: [[10, '10장'], [7, '7장 (빠른 판)'], [13, '13장 (정식)']], def: 10 },
+    ],
+  },
+  connect4: {
+    name: '사목', en: 'CONNECT FOUR', cat: 'board', min: 2, max: 2, bots: true, lastWins: true, time: '5분', isNew: true,
+    short: '위에서 떨어뜨려 네 개를 먼저 이어라',
+    rules: [
+      '7줄 × 6칸 세워진 판에 번갈아 돌을 떨어뜨려요. 돌은 그 줄의 가장 아래 빈칸으로 떨어져요.',
+      '가로, 세로, 대각선으로 내 돌 4개를 먼저 이으면 승리!',
+      '판이 가득 차면 무승부예요.',
+    ],
+    options: [
+      { key: 'time', label: '한 수 제한 시간', choices: timeChoices([15, 20, 30]), def: 20 },
+    ],
+  },
 };
+
+// 음성 채팅: rec = 음성으로 하면 더 재밌는 게임(입장 시 권유), off = 음성을 쓰지 않는 게임, 그 외 = 원하면 켤 수 있음
+export const voiceMode = (g) => GAMES[g]?.voice || 'on';
 
 export const GENRES = { party: '파티 · 추리', draw: '그림 · 단어', card: '카드 · 타일', board: '보드 · 주사위' };
 

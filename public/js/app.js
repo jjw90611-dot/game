@@ -1,7 +1,9 @@
 // 보드게임 모음집 - 메인 화면 제어
 import { Net } from './net.js';
 import { $, $$, esc, avatar, toast, openModal, colorOf, beep } from './ui.js';
-import { CATEGORIES, GAMES, GENRES } from './catalog.js';
+import { CATEGORIES, GAMES, GENRES, voiceMode } from './catalog.js';
+import { createVoice } from './voice.js';
+import { GUIDES } from './guides.js';
 import { thumb, thumbSrc } from './art.js';
 import { icon } from './icons.js';
 
@@ -61,6 +63,7 @@ const net = new Net({
     }
   },
 });
+const voice = createVoice({ send: (m) => net.send(m), me: () => S.me?.uid, onChange: () => renderVoice() });
 const send = (m) => {
   if (!net.send(m)) toast('서버에 연결하는 중이에요. 잠시만 기다려 주세요.', 'err');
 };
@@ -107,6 +110,9 @@ function onMessage(m) {
     case 'fetch':
       game.inst?.onFetch?.(m.key, m.data);
       break;
+    case 'rtc':
+      voice.onSignal(m.from, m.d);
+      break;
     case 'left':
       onLeft(m.why);
       break;
@@ -133,6 +139,8 @@ function onRoom(m) {
       S.resultSeen = m.room.status === 'waiting' ? `${m.room.id}:${m.room.round}` : '';
     }
   }
+  voice.syncRoom(S.room);
+  voice.setForced(voiceForced());
   const r = route();
   if (m.full && (S.expectRoom || (r.page === 'room' && r.id === m.room.id) || r.page === 'room')) {
     S.expectRoom = false;
@@ -157,6 +165,7 @@ function onRoom(m) {
 
 function onLeft(why) {
   const game_ = S.room?.game;
+  voice.leave();
   S.room = null;
   S.view = null;
   S.chat = [];
@@ -240,7 +249,7 @@ const genreOf = (g) => GENRES[GAMES[g].cat] || '';
 
 function badges(g) {
   const m = GAMES[g];
-  return `${m.hot ? '<span class="bdg hot">HOT</span>' : ''}${m.badge ? `<span class="bdg vid">${icon('video')}${esc(m.badge)}</span>` : ''}${m.bots ? `<span class="bdg bot">${icon('bot')}봇</span>` : ''}`;
+  return `${m.isNew ? '<span class="bdg new">NEW</span>' : ''}${m.hot ? '<span class="bdg hot">HOT</span>' : ''}${m.badge ? `<span class="bdg vid">${icon('video')}${esc(m.badge)}</span>` : ''}${voiceMode(g) === 'rec' ? `<span class="bdg voice">${icon('headset')}음성</span>` : ''}${m.bots ? `<span class="bdg bot">${icon('bot')}봇</span>` : ''}`;
 }
 
 function gameCard(g, rank = 0) {
@@ -294,9 +303,11 @@ function pageHead(title, en, desc) {
 // ─── 홈 ───────────────────────────────────────────────────
 const SLIDES = [
   { id: 'avalon', eyebrow: 'NEW · 화상 추리 게임', title: '레지스탕스 아발론', desc: '카메라로 서로의 얼굴을 보며 속이고 추리하는 원탁의 밤.\n사회자 음성 진행과 CPU 기사까지, 5~10명이 함께해요.' },
+  { id: 'song', eyebrow: 'NEW · 요즘 대세', title: '노래 맞히기', desc: '딱 1초 듣고 제목을 맞혀라!\n2000년대부터 최신 인기곡까지, 연대를 골라 K-POP 퀴즈 대결.' },
+  { id: 'indian', eyebrow: 'NEW · 블러핑 심리전', title: '인디언 포커', desc: '내 카드만 모르는 포커 한 판.\n음성 채팅으로 떠보고 속이며 칩을 쓸어 담으세요.' },
   { id: 'liar', eyebrow: 'HOT · 파티 게임', title: '라이어 게임', desc: '제시어를 모르는 단 한 사람.\n한 마디 설명으로 정체를 숨기고, 거짓말쟁이를 찾아내세요.' },
   { id: 'mafia', eyebrow: 'HOT · 심리전', title: '마피아', desc: '밤에는 숨고, 낮에는 속여라.\n최대 12명이 함께하는 실시간 추리 심리전.' },
-  { id: 'rummy', eyebrow: '봇과 연습 가능', title: '러미 타일', desc: '같은 색 연속 숫자, 다른 색 같은 숫자.\n타일을 가장 먼저 모두 내려놓는 사람이 승리해요.' },
+  { id: 'yut', eyebrow: 'NEW · 전통 놀이', title: '윷놀이', desc: '도·개·걸·윷·모! 말을 잡고 업고 지름길로.\n명절 분위기 그대로, 친구들과 온라인으로 한 판.' },
   { id: 'drawguess', eyebrow: '그림 · 단어', title: '그림 맞히기', desc: '그리는 사람도, 맞히는 사람도 웃음이 터지는\n실시간 그림 퀴즈. 휴대폰으로도 쓱쓱.' },
 ];
 const hero = { i: 0, timer: null, paused: false };
@@ -330,7 +341,7 @@ function heroHTML() {
       </div>`).join('')}
     </div>
     <div class="wrap hero-nav">
-      <div class="hn-tabs">${SLIDES.map((s, i) => `<button type="button" class="hn-tab ${i === hero.i ? 'on' : ''}" data-i="${i}"><span>${esc(s.title)}</span><i></i></button>`).join('')}</div>
+      <div class="hn-tabs" style="grid-template-columns:repeat(${SLIDES.length},minmax(0,1fr))">${SLIDES.map((s, i) => `<button type="button" class="hn-tab ${i === hero.i ? 'on' : ''}" data-i="${i}"><span>${esc(GAMES[s.id].name)}</span><i></i></button>`).join('')}</div>
       <div class="hn-arrows"><button type="button" class="hn-prev" aria-label="이전">${icon('back')}</button><span class="hn-count"><b>${hero.i + 1}</b> / ${SLIDES.length}</span><button type="button" class="hn-next" aria-label="다음">${icon('next')}</button></div>
     </div>
   </section>`;
@@ -377,7 +388,8 @@ function bindHero() {
 }
 
 function renderHome() {
-  const popular = ['liar', 'mafia', 'avalon', 'drawguess', 'rummy', 'yacht', 'omok', 'onecard'];
+  const popular = ['liar', 'mafia', 'avalon', 'song', 'drawguess', 'rummy', 'indian', 'yut'];
+  const fresh = ['song', 'indian', 'yut', 'dice', 'rankwar', 'spotit', 'chosung', 'oneword'];
   $('#view').innerHTML = `
   <div class="home">
     ${heroHTML()}
@@ -394,8 +406,12 @@ function renderHome() {
         <div class="room-strip" id="home-rooms"></div>
       </section>
       <section class="sec">
+        ${secHead('새로 나온 게임', '요즘 모임에서 가장 많이 하는 게임들을 새로 담았어요', '#/games')}
+        <div class="cards">${fresh.map((g) => gameCard(g)).join('')}</div>
+      </section>
+      <section class="sec">
         ${secHead('더 많은 게임', '추리 · 전략 · 순발력, 취향대로 골라 보세요', '#/games')}
-        <div class="cards">${CATEGORIES.flatMap((c) => c.games).filter((g) => !popular.includes(g)).map((g) => gameCard(g)).join('')}</div>
+        <div class="cards">${CATEGORIES.flatMap((c) => c.games).filter((g) => !popular.includes(g) && !fresh.includes(g)).map((g) => gameCard(g)).join('')}</div>
       </section>
       <section class="sec">
         ${secHead('커뮤니티', '접속한 사람들과 자유롭게 이야기해요', '#/community')}
@@ -609,6 +625,41 @@ function updateRoomBanner() {
   $('#banner-leave').onclick = () => send({ t: 'leave' });
 }
 
+// ─── 게임 설명서 ──────────────────────────────────────────
+const TEAM_LABEL = { good: '선', bad: '악', neutral: '' };
+const TEAM_GAMES = new Set(['avalon', 'mafia', 'werewolf', 'liar']);
+function guideHTML(g, compact = false) {
+  const G = GUIDES[g];
+  const meta = GAMES[g];
+  if (!G) return `<ol class="rules">${meta.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol>`;
+  const sec = (id, title, body) => `<section class="gd-sec" id="gd-${id}-${compact ? 'm' : 'p'}"><h3>${title}</h3>${body}</section>`;
+  const list = (arr, cls) => `<ul class="${cls}">${arr.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  const toc = [['intro', '소개'], ['flow', '진행 순서'], G.roles && ['roles', '역할 · 카드'], ['win', '승리 조건'], G.tips && ['tips', '공략 팁'], G.controls && ['controls', '조작법'], G.faq && ['faq', 'FAQ']].filter(Boolean);
+  return `<div class="guide ${compact ? 'compact' : ''}">
+    ${compact ? '' : `<nav class="gd-toc">${toc.map(([id, t]) => `<a href="#" data-goto="gd-${id}-p">${t}</a>`).join('')}</nav>`}
+    <section class="gd-sec gd-intro" id="gd-intro-${compact ? 'm' : 'p'}">
+      <p class="gd-lead">${esc(G.intro)}</p>
+      <div class="gd-goal"><span>${icon('trophy')}</span><div><b>게임 목표</b><p>${esc(G.goal)}</p></div></div>
+      ${G.voice ? `<div class="gd-voice"><span>${icon(voiceMode(g) === 'off' ? 'micoff' : voiceMode(g) === 'video' ? 'video' : 'headset')}</span><p>${esc(G.voice)}</p></div>` : ''}
+    </section>
+    ${sec('flow', '진행 순서', `<ol class="gd-flow">${G.flow.map((f, i) => `<li><span class="gd-n">${i + 1}</span><div><b>${esc(f.t)}</b><p>${esc(f.d)}</p></div></li>`).join('')}</ol>`)}
+    ${G.roles ? sec('roles', '역할 · 카드', `<div class="gd-roles">${G.roles.map((r) => `<div class="gd-role ${r.team || ''}"><b>${esc(r.name)}${TEAM_GAMES.has(g) && TEAM_LABEL[r.team] ? `<em>${TEAM_LABEL[r.team]}</em>` : ''}</b><p>${esc(r.desc)}</p></div>`).join('')}</div>`) : ''}
+    ${sec('win', '승리 조건', list(G.win, 'gd-win'))}
+    ${G.tips ? sec('tips', '공략 팁', list(G.tips, 'gd-tips')) : ''}
+    ${G.controls ? sec('controls', '화면 조작법', list(G.controls, 'gd-ctl')) : ''}
+    ${G.faq ? sec('faq', '자주 묻는 질문', `<div class="gd-faq">${G.faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}</div>`) : ''}
+  </div>`;
+}
+
+function bindGuide(root) {
+  root.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-goto]');
+    if (!a) return;
+    e.preventDefault();
+    document.getElementById(a.dataset.goto)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
 // ─── 게임 소개 페이지 ─────────────────────────────────────
 function renderGamePage(g) {
   const meta = GAMES[g];
@@ -626,7 +677,7 @@ function renderGamePage(g) {
         <h1>${esc(meta.name)}</h1>
         <span class="s-en">${esc(meta.en)}</span>
         <p class="gp-short">${esc(meta.short)}</p>
-        <div class="gp-meta"><span>${icon('users')}${playersText(g)}</span><span>${icon('clock')}약 ${meta.time}</span>${meta.bots ? `<span>${icon('bot')}봇과 연습</span>` : ''}${ext ? `<span>${icon('video')}화상 · 음성</span>` : ''}</div>
+        <div class="gp-meta"><span>${icon('users')}${playersText(g)}</span><span>${icon('clock')}약 ${meta.time}</span>${meta.bots ? `<span>${icon('bot')}봇과 연습</span>` : ''}${ext ? `<span>${icon('video')}화상 · 음성</span>` : voiceMode(g) === 'rec' ? `<span>${icon('headset')}음성 채팅 추천</span>` : ''}</div>
         <div class="gp-actions">
           ${ext ? `<a class="btn cta lg" href="${meta.external}">${icon('play')}입장하기</a><span class="gate-note" id="gate-note"></span>`
     : ready ? `<button class="btn cta lg" type="button" id="quick">${icon('bolt')}빠른 시작</button>
@@ -637,13 +688,14 @@ function renderGamePage(g) {
     </section>
     <div class="wrap gp-body">
       <div class="gp-main">
-        <div class="panel"><div class="panel-head"><h3>게임 방법</h3></div><ol class="rules">${meta.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol></div>
+        <div class="panel guide-panel"><div class="panel-head"><h3>게임 설명서</h3><span class="small muted">${esc(meta.name)} 완전 정복</span></div>${guideHTML(g)}</div>
       </div>
       <aside class="gp-side">
         <div class="panel info-table">
           <div class="panel-head"><h3>게임 정보</h3></div>
           <dl><dt>장르</dt><dd>${esc(genreOf(g))}</dd><dt>인원</dt><dd>${playersText(g)}</dd><dt>플레이 시간</dt><dd>약 ${meta.time}</dd><dt>봇 연습</dt><dd>${meta.bots ? '가능' : '불가'}</dd>${ext ? '<dt>필요</dt><dd>카메라 · 마이크 (선택)</dd>' : ''}</dl>
         </div>
+        <div class="panel"><div class="panel-head"><h3>3분 요약</h3></div><ol class="rules small-rules">${meta.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol></div>
         ${ext ? '' : `<div class="panel"><div class="panel-head"><h3>방 목록</h3><span class="small muted">${esc(meta.name)}</span></div><div class="room-list" id="gp-rooms" data-game="${g}"></div></div>`}
       </aside>
     </div>
@@ -661,6 +713,7 @@ function renderGamePage(g) {
   renderGameRooms(g);
   refreshLive();
   updateRoomBanner();
+  bindGuide($('.gpage'));
 }
 
 function renderGameRooms(g) {
@@ -689,7 +742,7 @@ function createRoomModal(g) {
 }
 
 function rulesModal(g) {
-  openModal({ title: `${GAMES[g].name} 게임 방법`, wide: true, body: `<ol class="rules" style="padding:0">${GAMES[g].rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol>` });
+  openModal({ title: `${GAMES[g].name} 설명서`, wide: true, body: guideHTML(g, true) });
 }
 
 // ─── 게임방 ───────────────────────────────────────────────
@@ -712,6 +765,7 @@ function renderRoom() {
       <button class="back" type="button" id="room-back" title="게임 목록">${icon('back')}</button>
       <div class="room-title"><span class="ricon">${thumb(r.game)}</span>
         <div class="rt-main"><div class="rt-game">${esc(meta.name)}</div><div class="rt-sub" id="rt-sub"></div></div></div>
+      <div class="voice-ctl" id="voice-ctl"></div>
       <div class="timer-chip" id="timer-chip" hidden>${icon('clock')}<span></span></div>
       <div class="room-actions">
         <button class="btn sm ib" type="button" id="btn-members" title="참가자">${icon('users')}<span class="lbl">참가자</span></button>
@@ -778,6 +832,57 @@ function renderRoom() {
   };
   renderRoomChat();
   updateRoom(true);
+  renderVoice();
+}
+
+// ─── 음성 채팅 ────────────────────────────────────────────
+function voiceForced() {
+  const r = S.room, v = S.view;
+  if (!r || r.status !== 'playing' || !v || !GAMES[r.game]?.voiceNight) return null;
+  if (v.alive && v.alive[S.me?.uid] === false) return '탈락해서 마이크가 꺼졌어요 (듣기만 할 수 있어요)';
+  if (v.phase === 'night') return '밤에는 모두의 마이크가 자동으로 꺼져요';
+  return null;
+}
+
+async function joinVoice() {
+  try {
+    await voice.join();
+    toast(voiceMode(S.room?.game) === 'rec' ? '음성 채팅에 참여했어요! 이어폰을 쓰면 울림이 줄어요.' : '음성 채팅에 참여했어요.', 'good');
+    renderStage();
+  } catch (e) {
+    toast(e.message || '음성 채팅에 참여하지 못했어요.', 'err');
+  }
+}
+
+let lastForced = null;
+function renderVoice() {
+  const box = $('#voice-ctl');
+  if (box && S.room) {
+    const mode = voiceMode(S.room.game);
+    const inVoice = S.room.members.filter((m) => m.voice).length;
+    if (mode === 'off' || mode === 'video') box.innerHTML = '';
+    else if (!voice.active) {
+      box.innerHTML = `<button class="btn sm vbtn ${mode === 'rec' ? 'rec' : ''}" type="button" data-vjoin title="음성 채팅 참여">${icon('headset')}<span class="lbl">음성${inVoice ? ` ${inVoice}` : ''}</span></button>`;
+    } else {
+      const on = voice.micOn && !voice.forced;
+      box.innerHTML = `<button class="btn sm vbtn mic ${on ? 'on' : 'off'} ${voice.isSpeaking(S.me.uid) ? 'talk' : ''}" type="button" data-vmic title="${voice.forced ? esc(voice.forced) : on ? '마이크 끄기' : '마이크 켜기'}" ${voice.forced ? 'disabled' : ''}>${icon(on ? 'mic' : 'micoff')}<span class="lbl">${on ? '마이크 켜짐' : voice.forced ? '마이크 잠김' : '마이크 꺼짐'}</span></button>
+        <button class="btn sm vbtn" type="button" data-vleave title="음성 채팅 나가기 (${inVoice}명 참여 중)">${icon('x')}<span class="lbl">음성 나가기</span></button>`;
+    }
+    box.onclick = (e) => {
+      if (e.target.closest('[data-vjoin]')) joinVoice();
+      if (e.target.closest('[data-vmic]')) voice.setMic(!voice.micOn);
+      if (e.target.closest('[data-vleave]')) { voice.leave(); renderStage(); }
+    };
+  }
+  if (voice.forced !== lastForced) {
+    if (voice.active && voice.forced) toast(voice.forced);
+    lastForced = voice.forced;
+  }
+  // 말하는 사람 표시
+  for (const el of $$('[data-uid], [data-pid]')) {
+    const id = el.dataset.uid || el.dataset.pid;
+    el.classList.toggle('vtalk', voice.active && voice.isSpeaking(id));
+  }
 }
 
 function invite() {
@@ -799,6 +904,7 @@ function updateRoom() {
   $('#rt-sub').textContent = `#${r.no} · ${r.title}${r.private ? ' · 비공개' : ''}`;
   renderMembers();
   renderStage();
+  renderVoice();
 }
 
 function renderMembers() {
@@ -809,8 +915,9 @@ function renderMembers() {
   const seated = r.seats.map((id) => r.members.find((m) => m.uid === id)).filter(Boolean);
   const inGame = new Set(S.view?.players?.map((p) => p.id) || []);
   const watchers = r.members.filter((m) => !r.seats.includes(m.uid) && !(r.status === 'playing' && inGame.has(m.uid)));
-  const row = (m) => `<div class="member ${m.online === false && !m.bot ? 'offline' : ''}">
+  const row = (m) => `<div class="member ${m.online === false && !m.bot ? 'offline' : ''}" data-uid="${esc(m.uid)}">
       ${avatar(m.uid, m.name, 'sm', m.bot)}<span class="mname">${esc(m.name)}</span>
+      ${m.voice ? `<span class="vstate ${m.mic ? 'on' : 'off'}" title="${m.mic ? '음성 참여 중' : '마이크 꺼짐'}">${icon(m.mic ? 'mic' : 'micoff')}</span>` : ''}
       ${m.uid === r.host ? `<span class="tag host">${icon('crown')}방장</span>` : ''}${m.uid === S.me?.uid ? '<span class="tag me">나</span>' : ''}
       ${m.online === false && !m.bot ? '<span class="tag off">연결 끊김</span>' : ''}
       ${isHost && m.uid !== S.me?.uid ? `<button class="kick" type="button" data-kick="${esc(m.uid)}" title="강퇴">✕</button>` : ''}
@@ -895,7 +1002,7 @@ function showResult() {
   const played = S.view?.players?.some((p) => p.id === S.me.uid);
   overlay.dataset.key = resultKey();
   overlay.innerHTML = `<div class="result-overlay"><div class="result-box">
-    <div class="trophy ${won ? 'win' : played && r.result.winners?.length ? 'lose' : ''}">${icon(won ? 'trophy' : played && r.result.winners?.length ? 'flame' : 'trophy')}</div>
+    <div class="trophy ${won ? 'win' : played && r.result.winners?.length ? 'lose' : ''}">${icon('trophy')}</div>
     <h2>${won ? '승리했어요!' : played && r.result.winners?.length ? '아쉽게 졌어요' : '게임 종료'}</h2>
     <p>${esc(r.result.text)}</p>
     <div class="actions">
@@ -971,7 +1078,7 @@ function renderWaiting() {
   for (let i = 0; i < meta.max; i++) {
     const m = seats[i];
     if (m) {
-      slots.push(`<div class="seat ${m.uid === S.me.uid ? 'me' : ''}">
+      slots.push(`<div class="seat ${m.uid === S.me.uid ? 'me' : ''}" data-uid="${esc(m.uid)}">
         ${isHost && m.uid !== S.me.uid ? `<button class="kick" type="button" data-kick="${esc(m.uid)}" title="내보내기">✕</button>` : ''}
         ${avatar(m.uid, m.name, 'lg', m.bot)}<div class="sname">${esc(m.name)}</div>
         <div class="stags">${m.uid === r.host ? `<span class="tag host">${icon('crown')}방장</span>` : ''}${m.bot ? '<span class="tag bot">봇</span>' : ''}${m.uid === S.me.uid ? '<span class="tag me">나</span>' : ''}${m.online === false && !m.bot ? '<span class="tag off">연결 끊김</span>' : ''}</div>
@@ -985,6 +1092,7 @@ function renderWaiting() {
   root.innerHTML = `<div class="waiting">
     ${r.result ? `<div class="result-card"><div class="res-t">${icon('trophy')}<span>${esc(r.result.text)}</span></div><div class="res-w">한 판 더 하려면 방장이 게임을 시작하면 돼요!</div></div>` : ''}
     <div class="wait-head"><h2>${esc(meta.name)} 대기실</h2><p>${playersText(r.game)} · ${need ? `<b style="color:var(--accent)">${need}명 더</b> 모이면 시작할 수 있어요` : '모두 모였어요! 준비되면 시작하세요'}</p></div>
+    ${voiceMode(r.game) === 'rec' && !voice.active ? `<div class="voice-invite"><span class="vi-ico">${icon('headset')}</span><div><b>이 게임은 음성으로 하면 훨씬 재밌어요!</b><small>마이크를 켜고 목소리로 대화하며 추리해 보세요. (이어폰 사용을 추천해요)</small></div><button class="btn primary" type="button" data-voice-join>${icon('mic')}음성 참여</button></div>` : ''}
     <div class="seats">${slots.join('')}</div>
     ${opts.length ? `<div class="panel"><div class="panel-head"><h3>게임 설정</h3>${isHost ? '' : '<span class="small muted">방장만 바꿀 수 있어요</span>'}</div><div class="opts">
       ${opts.map((o) => `<div class="opt"><label>${esc(o.label)}</label>${isHost
@@ -1002,6 +1110,7 @@ function renderWaiting() {
     ${meta.bots && seats.length < meta.min + 1 ? '<p class="wait-note">혼자라면 봇을 추가해서 바로 연습할 수 있어요!</p>' : ''}
   </div>`;
   root.onclick = (e) => {
+    if (e.target.closest('[data-voice-join]')) joinVoice();
     const b = e.target.closest('[data-bot]');
     if (b) send({ t: 'bot', add: b.dataset.bot === '1' });
     const k = e.target.closest('[data-kick]');

@@ -15,6 +15,15 @@ import reversi from './reversi.js';
 import gems from './gems.js';
 import werewolf from './werewolf.js';
 import coup from './coup.js';
+import indian from './indian.js';
+import yut from './yut.js';
+import dice from './dice.js';
+import rankwar from './rankwar.js';
+import spotit from './spotit.js';
+import chosung from './chosung.js';
+import oneword from './oneword.js';
+import connect4 from './connect4.js';
+import song from './song.js';
 
 export const MODULES = {
   // 1순위
@@ -23,4 +32,6 @@ export const MODULES = {
   wordspy, onecard, numbercode, fruitbell, relay, reversi,
   // 3순위
   gems, werewolf, coup,
+  // 새로 나온 게임
+  song, indian, yut, dice, rankwar, spotit, chosung, oneword, connect4,
 };

@@ -179,6 +179,12 @@ async function getIceServers(env, usage) {
   }
 }
 
+// 보드게임 모음집 음성 채팅도 같은 TURN 키와 월 사용량 제한을 함께 써요
+export async function iceConfig(env) {
+  const usage = await getTurnUsageStatus(env).catch(() => null);
+  return getIceServers(env, usage);
+}
+
 function blockedResponse(usage) {
   return json({ ok: false, blocked: true, error: `이번 달 TURN 안전 한도 ${usage?.capGB || 800}GB에 도달해 게임 서비스를 자동 일시정지했습니다.`, turnUsage: usage }, 503);
 }
