@@ -202,7 +202,7 @@ async function checkSiteGate() {
     const res = await fetch(AVALON_BASE + '/api/site-status', { cache: 'no-store' });
     const data = await res.json();
     syncAdminSiteLockButtons(data);
-    if (data?.locked && !data?.admin) {
+    if (data?.locked) {
       if (socket) { try { socket.disconnect(); } catch (_) {} }
       if (localStream) for (const track of localStream.getTracks()) track.stop();
       location.reload();
@@ -213,7 +213,7 @@ async function checkSiteGate() {
 }
 
 async function lockSiteFromMain() {
-  if (!confirm('사이트를 잠그면 새 접속이 즉시 차단되고, 현재 접속자도 잠금 상태를 확인하는 즉시 게임에서 나가게 됩니다. 정말 사이트를 잠글까요?')) return;
+  if (!confirm('아발론과 음성 게임 23개를 함께 잠그면 새 접속이 즉시 차단되고, 현재 접속자도 잠금 상태를 확인하는 즉시 게임에서 나가게 됩니다. 정말 사이트를 잠글까요?')) return;
   for (const btn of siteLockButtons) btn.disabled = true;
   try {
     const res = await fetch(AVALON_BASE + '/api/admin/lock', { method: 'POST' });
@@ -230,7 +230,7 @@ async function lockSiteFromMain() {
 }
 function startSitePolling() {
   if (sitePollTimer) clearInterval(sitePollTimer);
-  sitePollTimer = setInterval(checkSiteGate, 15000);
+  sitePollTimer = setInterval(checkSiteGate, 5000);
 }
 
 async function ensureMedia() {

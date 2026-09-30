@@ -1,0 +1,30 @@
+{
+  "base_zip_sha256": "f69814eea8c73d904bc20cc689fb242822947785ae4c7cb1c718a72ed1236977",
+  "test_passed": 117,
+  "ui_checks_passed": 16,
+  "changed_files": [
+    "CODE_REVIEW.md",
+    "PATCH_NOTES.md",
+    "README.md",
+    "SHARED_MEDIA_LOCK.md",
+    "TEST_REPORT_LOCK_FIX.txt",
+    "TEST_REPORT_SHARED_LOCK.txt",
+    "avalon/README.md",
+    "avalon/src/gate.js",
+    "avalon/src/index.js",
+    "public/avalon/app.js",
+    "public/css/style.css",
+    "public/index.html",
+    "public/js/app.js",
+    "public/js/catalog.js",
+    "public/js/media-gate.js",
+    "public/js/site-admin.js",
+    "public/js/voice.js",
+    "src/hub.js",
+    "src/worker.js",
+    "test/media-access.test.js",
+    "test/site-admin-api.test.js",
+    "test/site-admin.test.js",
+    "test/voice-access.test.js"
+  ]
+}

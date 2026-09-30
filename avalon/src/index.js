@@ -56,13 +56,15 @@ function gateStub(env) {
   return env.GATE.get(env.GATE.idFromName('AVALON_GLOBAL_GATE'));
 }
 
-async function getGateStatus(env) {
+export async function getGateStatus(env) {
   const stub = gateStub(env);
   if (!stub) return { locked: true, updatedAt: 0, reason: 'gate-not-configured' };
   try {
     const res = await stub.fetch('https://gate/internal/status');
     if (!res.ok) throw new Error(`gate status ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    if (typeof data.locked !== 'boolean') throw new Error('Invalid gate state');
+    return data;
   } catch (err) {
     console.error('site gate status failed', err);
     return { locked: true, updatedAt: 0, reason: 'gate-check-failed' };
@@ -73,7 +75,7 @@ function cookieValue(request, key) {
   const cookie = request.headers.get('cookie') || '';
   for (const part of cookie.split(';')) {
     const [name, ...rest] = part.trim().split('=');
-    if (name === key) return decodeURIComponent(rest.join('='));
+    if (name === key) { try { return decodeURIComponent(rest.join('=')); } catch { return ''; } }
   }
   return '';
 }
@@ -95,21 +97,21 @@ function adminCookie(token, maxAge = 43200) {
 
 function lockedPage() {
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b10"><title>아발론 · 왕국 봉인</title><style>
-  *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 20%,#1b2940 0,#0b111a 35%,#05070a 75%);color:#eee2c6;font-family:Georgia,'Noto Serif KR',serif}.card{width:min(620px,100%);padding:42px 30px;border:1px solid #79613a;border-radius:22px;background:linear-gradient(180deg,rgba(24,31,42,.96),rgba(8,12,18,.98));box-shadow:0 30px 90px #000;text-align:center}.seal{width:86px;height:86px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;border:2px solid #b5914e;color:#e7c87e;font-size:42px;background:#16120c;box-shadow:inset 0 0 0 7px #281f11}h1{font-size:32px;margin:0 0 12px;color:#f2d99c}p{font-size:18px;line-height:1.75;color:#bcb39f;margin:0 0 24px}.status{padding:14px;border:1px solid #5a4527;border-radius:12px;background:#0c1118;color:#d6c194;font-size:16px}.admin{display:inline-block;margin-top:24px;color:#d7bd80;font-size:15px;text-decoration:none;border-bottom:1px solid #7d663a}</style></head><body><main class="card"><div class="seal">♜</div><h1>왕국의 문이 잠겨 있습니다</h1><p>현재 관리자가 아발론 게임 사이트를 잠금 상태로 두었습니다.<br>관리자가 잠금을 해제한 뒤 다시 접속해 주세요.</p><div class="status">SITE LOCKED · 새 방 / 입장 / 영상 연결 차단</div><a class="admin" href="${BASE}/admin">관리자 페이지</a></main></body></html>`;
+  *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 20%,#1b2940 0,#0b111a 35%,#05070a 75%);color:#eee2c6;font-family:Georgia,'Noto Serif KR',serif}.card{width:min(620px,100%);padding:42px 30px;border:1px solid #79613a;border-radius:22px;background:linear-gradient(180deg,rgba(24,31,42,.96),rgba(8,12,18,.98));box-shadow:0 30px 90px #000;text-align:center}.seal{width:86px;height:86px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;border:2px solid #b5914e;color:#e7c87e;font-size:42px;background:#16120c;box-shadow:inset 0 0 0 7px #281f11}h1{font-size:32px;margin:0 0 12px;color:#f2d99c}p{font-size:18px;line-height:1.75;color:#bcb39f;margin:0 0 24px}.status{padding:14px;border:1px solid #5a4527;border-radius:12px;background:#0c1118;color:#d6c194;font-size:16px}.admin{display:inline-block;margin-top:24px;color:#d7bd80;font-size:15px;text-decoration:none;border-bottom:1px solid #7d663a}</style></head><body><main class="card"><div class="seal">♜</div><h1>왕국의 문이 잠겨 있습니다</h1><p>현재 아발론을 포함한 음성·화상 게임 23개가 잠겨 있습니다.<br>관리자가 잠금을 해제한 뒤 다시 접속해 주세요.</p><div class="status">SITE LOCKED · 새 방 / 입장 / 영상 연결 차단</div><a class="admin" href="${BASE}/admin">관리자 페이지</a></main></body></html>`;
 }
 
 function adminPage() {
-  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b10"><title>아발론 사이트 관리</title><style>
-  *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#26344b,#0a0e14 46%,#05070a);color:#eee2c6;font-family:system-ui,'Noto Sans KR',sans-serif;padding:24px}.wrap{width:min(720px,100%);margin:5vh auto}.panel{border:1px solid #755c33;border-radius:20px;padding:28px;background:rgba(11,16,23,.96);box-shadow:0 25px 80px #000}.eyebrow{font-size:12px;letter-spacing:.18em;color:#ba9d63;font-weight:800}h1{font-family:Georgia,'Noto Serif KR',serif;font-size:31px;margin:7px 0 10px;color:#f0d79d}p{font-size:16px;line-height:1.7;color:#aaa89f}.status{margin:20px 0;padding:18px;border-radius:14px;background:#111a24;border:1px solid #2b3644;font-size:18px;font-weight:800}.status.locked{border-color:#743c3c;color:#efb7b7}.status.open{border-color:#3e6f59;color:#afe0c7}input{width:100%;font-size:20px;padding:15px 16px;background:#090d13;color:#fff;border:1px solid #5f5138;border-radius:12px;outline:none}button,.link{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin-top:10px;border-radius:12px;border:1px solid #7c6238;font-size:17px;font-weight:800;cursor:pointer;text-decoration:none}.primary{background:linear-gradient(#d2b16c,#9f7839);color:#171007}.danger{background:#35191a;color:#f0c0bd;border-color:#743b3d}.secondary{background:#111923;color:#d9c599}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hidden{display:none}.msg{min-height:26px;margin-top:12px;color:#e7c77f;font-size:14px}@media(max-width:560px){.panel{padding:22px 17px}.grid{grid-template-columns:1fr}h1{font-size:27px}}</style></head><body><div class="wrap"><section class="panel"><div class="eyebrow">AVALON · SITE KEEPER</div><h1>왕국 출입 관리</h1><p>게임을 할 때만 <b>잠금 해제</b>하고, 끝나면 다시 <b>사이트 잠금</b>을 누르세요. 잠금 상태에서는 새 방 생성·입장·TURN 자격증명 발급이 차단됩니다.</p><div id="status" class="status">상태 확인 중…</div><div id="loginBox"><input id="pw" type="password" inputmode="numeric" autocomplete="current-password" placeholder="관리 비밀번호"><button id="login" class="primary">관리자 로그인</button></div><div id="adminBox" class="hidden"><div class="grid"><button id="unlock" class="primary">🔓 사이트 잠금 해제</button><button id="lock" class="danger">🔒 사이트 잠금</button></div><a href="${BASE}/" class="link secondary">게임 사이트 열기</a><button id="logout" class="secondary">관리자 로그아웃</button></div><div id="msg" class="msg"></div></section></div><script>
+  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b10"><title>음성·화상 게임 잠금 관리</title><style>
+  *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#26344b,#0a0e14 46%,#05070a);color:#eee2c6;font-family:system-ui,'Noto Sans KR',sans-serif;padding:24px}.wrap{width:min(720px,100%);margin:5vh auto}.panel{border:1px solid #755c33;border-radius:20px;padding:28px;background:rgba(11,16,23,.96);box-shadow:0 25px 80px #000}.eyebrow{font-size:12px;letter-spacing:.18em;color:#ba9d63;font-weight:800}h1{font-family:Georgia,'Noto Serif KR',serif;font-size:31px;margin:7px 0 10px;color:#f0d79d}p{font-size:16px;line-height:1.7;color:#aaa89f}.status{margin:20px 0;padding:18px;border-radius:14px;background:#111a24;border:1px solid #2b3644;font-size:18px;font-weight:800}.status.locked{border-color:#743c3c;color:#efb7b7}.status.open{border-color:#3e6f59;color:#afe0c7}input{width:100%;font-size:20px;padding:15px 16px;background:#090d13;color:#fff;border:1px solid #5f5138;border-radius:12px;outline:none}button,.link{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin-top:10px;border-radius:12px;border:1px solid #7c6238;font-size:17px;font-weight:800;cursor:pointer;text-decoration:none}.primary{background:linear-gradient(#d2b16c,#9f7839);color:#171007}.danger{background:#35191a;color:#f0c0bd;border-color:#743b3d}.secondary{background:#111923;color:#d9c599}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hidden{display:none}.msg{min-height:26px;margin-top:12px;color:#e7c77f;font-size:14px}@media(max-width:560px){.panel{padding:22px 17px}.grid{grid-template-columns:1fr}h1{font-size:27px}}</style></head><body><div class="wrap"><section class="panel"><div class="eyebrow">BOARD GAMES · ACCESS CONTROL</div><h1>음성·화상 게임 출입 관리</h1><p>게임을 할 때만 <b>잠금 해제</b>하고, 끝나면 다시 <b>사이트 잠금</b>을 누르세요. 아발론과 음성 지원 게임 <b>23개</b>의 방 생성·입장·TURN 발급을 함께 잠그고, 진행 중인 일반 음성 게임방을 종료합니다. 노래 맞히기와 초성 퀴즈는 제외됩니다. <b>잠금을 해제하면 누구나 입장할 수 있습니다.</b></p><div id="status" class="status">상태 확인 중…</div><div id="loginBox"><input id="pw" type="password" inputmode="numeric" autocomplete="current-password" placeholder="관리 비밀번호"><button id="login" class="primary">관리자 로그인</button></div><div id="adminBox" class="hidden"><div class="grid"><button id="unlock" class="primary">🔓 사이트 잠금 해제</button><button id="lock" class="danger">🔒 사이트 잠금</button></div><a href="/" class="link secondary">게임 사이트 열기</a><button id="logout" class="secondary">관리자 로그아웃</button></div><div id="msg" class="msg"></div></section></div><script>
   const $=id=>document.getElementById(id); let admin=false;
   async function refresh(){const r=await fetch('${BASE}/api/site-status',{cache:'no-store'});const d=await r.json();admin=!!d.admin;$('status').textContent=d.locked?'🔒 현재 사이트 잠금 상태':'🔓 현재 사이트 잠금 해제 상태';$('status').className='status '+(d.locked?'locked':'open');$('loginBox').classList.toggle('hidden',admin);$('adminBox').classList.toggle('hidden',!admin);if(!d.passwordConfigured)$('msg').textContent='Cloudflare Secret SITE_ADMIN_PASSWORD가 아직 설정되지 않았습니다.';}
   $('login').onclick=async()=>{const r=await fetch('${BASE}/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:$('pw').value})});const d=await r.json();$('msg').textContent=d.error||'로그인했습니다.';if(r.ok){$('pw').value='';await refresh();}};
   async function setLock(locked){const r=await fetch(locked?'${BASE}/api/admin/lock':'${BASE}/api/admin/unlock',{method:'POST'});const d=await r.json();$('msg').textContent=d.error||(locked?'사이트를 잠갔습니다.':'사이트 잠금을 해제했습니다.');await refresh();}
-  $('lock').onclick=()=>setLock(true);$('unlock').onclick=()=>setLock(false);$('logout').onclick=async()=>{await fetch('${BASE}/api/admin/logout',{method:'POST'});await refresh();}; refresh();
+  $('lock').onclick=()=>{if(confirm('23개 음성·화상 게임의 입장을 차단하고 일반 음성 게임방을 종료할까요?'))setLock(true);};$('unlock').onclick=()=>setLock(false);$('logout').onclick=async()=>{await fetch('${BASE}/api/admin/logout',{method:'POST'});await refresh();}; refresh();
   </script></body></html>`;
 }
 
-async function getTurnUsageStatus(env, force = false) {
+export async function getTurnUsageStatus(env, force = false) {
   const limitGB = capGB(env);
   const base = {
     capGB: limitGB,
@@ -160,7 +162,7 @@ async function getTurnUsageStatus(env, force = false) {
   }
 }
 
-async function getIceServers(env, usage) {
+export async function getIceServers(env, usage) {
   const fallback = [{ urls: ['stun:stun.cloudflare.com:3478'] }];
   if (!usage?.turnAllowed || !env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return fallback;
   try {
@@ -181,8 +183,20 @@ async function getIceServers(env, usage) {
 
 // 보드게임 모음집 음성 채팅도 같은 TURN 키와 월 사용량 제한을 함께 써요
 export async function iceConfig(env) {
-  const usage = await getTurnUsageStatus(env).catch(() => null);
-  return getIceServers(env, usage);
+  const access = await getMediaAccess(env);
+  if (!access.open) return [];
+  return getIceServers(env, access.turnUsage);
+}
+
+
+// Used by BOTH the main game hub and Avalon. The manual gate and cap are independent.
+export async function getMediaAccess(env) {
+  const gate = await getGateStatus(env);
+  if (gate.locked) return { open: false, locked: true, blocked: false, reason: gate.reason || 'site-locked', error: '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.', scope: 'media-games' };
+  const turnUsage = await getTurnUsageStatus(env);
+  return { open: !turnUsage.blocked, locked: false, blocked: !!turnUsage.blocked,
+    reason: turnUsage.blocked ? 'monthly-turn-cap-reached' : 'open',
+    error: turnUsage.blocked ? '이번 달 TURN 안전 한도에 도달해 음성·화상 게임을 일시정지했습니다.' : '', scope: 'media-games', turnUsage };
 }
 
 function blockedResponse(usage) {
@@ -190,7 +204,7 @@ function blockedResponse(usage) {
 }
 
 function siteLockedResponse() {
-  return json({ ok: false, locked: true, error: '관리자가 현재 아발론 사이트를 잠가 두었습니다.' }, 423);
+  return json({ ok: false, locked: true, error: '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.' }, 423);
 }
 
 export default {
@@ -198,6 +212,8 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === BASE) return Response.redirect(`${url.origin}${BASE}/${url.search}`, 301);
     const path = url.pathname.startsWith(`${BASE}/`) ? url.pathname.slice(BASE.length) : url.pathname;
+
+    if (path.startsWith('/api/admin/') && request.method === 'POST' && request.headers.get('origin') && request.headers.get('origin') !== url.origin) return json({ ok: false, error: 'Cross-origin request denied' }, 403);
 
     if (path === '/health') return json({ ok: true, platform: 'cloudflare-workers', now: new Date().toISOString() });
     if (path === '/admin') return html(adminPage());
@@ -234,7 +250,16 @@ export default {
       const stub = gateStub(env);
       const locked = path.endsWith('/lock');
       const res = await stub.fetch('https://gate/internal/state', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ locked }) });
-      return json(await res.json(), res.status);
+      const data = await res.json();
+      // Notify the existing shared Hub after persistence. Its own gate read is authoritative.
+      // Failure here never rolls back a successful lock; the Hub also polls while active.
+      if (res.ok && env.HUB) {
+        try {
+          const notice = await env.HUB.get(env.HUB.idFromName('main')).fetch('https://hub/internal/media-refresh', { method: 'POST' });
+          if (!notice.ok) throw new Error('Hub notification failed');
+        } catch (error) { console.error('Media gate notification failed', error); }
+      }
+      return json(data, res.status);
     }
 
     const gate = await getGateStatus(env);
@@ -243,7 +268,7 @@ export default {
 
     const isProtectedRuntime = path === '/config' || path === '/api/usage' || path === '/api/rooms' || path.startsWith('/ws/');
     const wantsHtml = request.method === 'GET' && (path === '/' || request.headers.get('accept')?.includes('text/html'));
-    if (gate.locked && !admin) {
+    if (gate.locked) {
       if (isProtectedRuntime) return siteLockedResponse();
       if (wantsHtml) return html(lockedPage(), 423);
     }
@@ -255,7 +280,10 @@ export default {
 
     if (path === '/config') {
       const usage = await getTurnUsageStatus(env);
-      return json({ iceServers: await getIceServers(env, usage), turnUsage: usage });
+      if (usage.blocked) return blockedResponse(usage);
+      const iceServers = await getIceServers(env, usage);
+      if ((await getGateStatus(env)).locked) return siteLockedResponse();
+      return json({ iceServers, turnUsage: usage });
     }
 
     const guardedRoute = (path === '/api/rooms' && request.method === 'POST') || /^\/ws\/[A-Z2-9]{5}$/i.test(path);

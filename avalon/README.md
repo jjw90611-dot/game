@@ -1,3 +1,5 @@
+> **2026-09-30 공통 잠금 업데이트:** 음성·화상 23개 게임을 함께 잠그도록 변경했습니다. 첫 적용 시 잠금 상태로 시작합니다. 적용·사용법·주의사항은 `SHARED_MEDIA_LOCK.md`를 먼저 읽으세요.
+
 # Avalon Live — 2026 Royal Table UI / Cloudflare Edition
 
 ## v5.2 컴퓨터 기사 모드

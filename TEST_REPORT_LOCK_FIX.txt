@@ -1,0 +1,33 @@
+Superseded by TEST_REPORT_SHARED_LOCK.txt. The prior lock-only UI tests are included in the 117 passing tests.
+
+SHARED MEDIA LOCK - VERIFICATION REPORT
+Date: 2026-09-30
+
+Node.js suite: 117 passed, 0 failed (npm test).
+Policy cases include all 23 protected games and both public games.
+The test suite exercises the real Worker, SiteGate, Hub, and voice source with mocked storage/network.
+
+Browser: 16 checks passed.
+Locked omok: quick-start and create disabled; management remains available
+Locked song: public game controls remain enabled
+Locked chosung: public game controls remain enabled
+Unlock updates common controls and re-enables protected games
+320px: header administrator controls have no clipping or overlap
+375px: header administrator controls have no clipping or overlap
+480px: header administrator controls have no clipping or overlap
+540px: header administrator controls have no clipping or overlap
+720px: header administrator controls have no clipping or overlap
+768px: header administrator controls have no clipping or overlap
+980px: header administrator controls have no clipping or overlap
+1024px: header administrator controls have no clipping or overlap
+1280px: header administrator controls have no clipping or overlap
+1440px: header administrator controls have no clipping or overlap
+Main button confirms shared relock and logout; protected controls disable
+No uncaught JavaScript errors in the main-site module graph
+
+Limitations:
+- Chromium loaded unchanged production UI modules via in-memory test bundling; HTTP navigation was unavailable in this environment.
+- API and WebSocket responses were mocked. No real users or live media were used.
+- Dependency installation did not finish; Wrangler build/local workerd runtime were not verified.
+- No deployment, account credentials, Cloudflare usage query, or live TURN/media connectivity test was performed.
+- No credential revocation API is added. Manual locking is not an instant account-wide billing cutoff.

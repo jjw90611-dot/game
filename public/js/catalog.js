@@ -368,3 +368,8 @@ export function defaultOptions(gameId) {
   for (const o of GAMES[gameId]?.options || []) opts[o.key] = o.def;
   return opts;
 }
+
+// Shared admission policy. A game is protected even when a player keeps the mic off.
+export function isMeteredGame(id) {
+  return Object.hasOwn(GAMES, id) && voiceMode(id) !== 'off';
+}

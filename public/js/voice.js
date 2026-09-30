@@ -1,11 +1,12 @@
 // 음성 채팅: 같은 방 참가자끼리 WebRTC로 목소리를 직접 주고받아요 (서버는 연결 신호만 전달)
 const FALLBACK_ICE = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
 
-export function createVoice({ send, me, onChange }) {
+export function createVoice({ send, me, onChange, game = () => null, session = () => '' }) {
   const peers = new Map(); // uid -> { pc, audio, pending: [] }
   const levels = new Map(); // uid -> analyser
   let active = false, stream = null, micOn = true, forced = null, ice = null, ctx = null, meterTimer = null, joining = null;
   let speaking = new Set();
+  let generation = 0;
 
   const effectiveMic = () => micOn && !forced;
   const report = () => send({ t: 'voice', on: active, mic: effectiveMic() });
@@ -87,16 +88,25 @@ export function createVoice({ send, me, onChange }) {
   async function join() {
     if (active) return;
     if (joining) return joining;
+    const ticket = ++generation;
     joining = (async () => {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) throw new Error('이 브라우저는 음성 채팅을 지원하지 않아요.');
-      try {
-        const r = await fetch('/api/ice', { cache: 'no-store' });
-        ice = (await r.json()).iceServers;
-      } catch { ice = FALLBACK_ICE; }
+      const r = await fetch('/api/ice?game=' + encodeURIComponent(game() || ''), {
+        cache: 'no-store', credentials: 'same-origin', headers: { 'x-game-session': session() }
+      });
+      const data = await r.json();
+      if (!r.ok || data.ok !== true || !Array.isArray(data.iceServers) || !data.iceServers.length) throw new Error(data.error || '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.');
+      if (ticket !== generation) return;
+      ice = data.iceServers;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
       } catch {
         throw new Error('마이크를 쓸 수 없어요. 브라우저 설정에서 마이크 권한을 허용해 주세요.');
+      }
+      if (ticket !== generation) {
+        for (const track of stream?.getTracks() || []) track.stop();
+        stream = null;
+        return;
       }
       active = true;
       applyMic();
@@ -109,7 +119,8 @@ export function createVoice({ send, me, onChange }) {
   }
 
   function leave() {
-    if (!active) return;
+    ++generation;
+    const wasActive = active;
     active = false;
     for (const uid of [...peers.keys()]) closePeer(uid);
     for (const t of stream?.getTracks() || []) t.stop();
@@ -117,7 +128,7 @@ export function createVoice({ send, me, onChange }) {
     levels.clear();
     clearInterval(meterTimer);
     speaking = new Set();
-    send({ t: 'voice', on: false });
+    if (wasActive) send({ t: 'voice', on: false });
     onChange?.();
   }
 

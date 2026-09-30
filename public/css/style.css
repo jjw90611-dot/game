@@ -752,3 +752,40 @@ body[data-page="room"] .footer, body[data-page="room"] .tabbar { display: none !
 }
 .gp-main, .gp-side { min-width: 0; }
 @media (max-width: 980px) { .gp-body { grid-template-columns: minmax(0, 1fr); } }
+
+/* Avalon controls are global so they remain available on every main-site route. */
+.site-admin-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.site-admin-link, .site-lock-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.site-admin-link { background: var(--panel); color: var(--ink-2); }
+.site-lock-btn { background: #fff0f0; color: #ad3039; border-color: #f2c9cd; }
+.site-admin-link:hover { border-color: var(--brand); color: var(--brand); }
+.site-lock-btn:hover { background: #ffe3e5; }
+.site-admin-link:focus-visible, .site-lock-btn:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.site-lock-btn:disabled { opacity: .6; cursor: wait; }
+@media (min-width: 981px) {
+  .gnb-in { gap: 20px; }
+  .gnb-right { gap: 8px; }
+  .gnb-nav { gap: 2px; }
+  .gnb-nav a { padding-left: 10px; padding-right: 10px; }
+  .gnb-right .me-chip #me-name { max-width: 88px; }
+}
+@media (min-width: 981px) and (max-width: 1220px) {
+  .gnb-right .online { display: none; }
+  .gnb-in { gap: 14px; }
+}
+@media (max-width: 720px) {
+  .gnb-in { gap: 8px; }
+  .gnb-right { gap: 6px; }
+  .site-admin-actions { gap: 4px; }
+  .site-admin-link, .site-lock-btn { padding: 7px; font-size: 11px; min-height: 36px; }
+  .gnb-right .me-chip { padding: 3px; }
+  .gnb-right .me-chip #me-name { display: none; }
+}
+@media (max-width: 480px) {
+  .gnb .logo-text { display: none; }
+}
+
+/* Shared TURN access state */
+.media-gate-banner { padding: 12px 20px; background: #fff3dc; color: #64420c; border-bottom: 1px solid #ecd6b0; text-align: center; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.media-gate-banner.is-open { background: #edf8f0; color: #235a36; border-color: #cee7d5; }
+.media-gate-banner[hidden] { display: none; }

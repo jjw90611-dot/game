@@ -18,7 +18,10 @@ export class SiteGate extends DurableObject {
 
   async readState() {
     const saved = await this.ctx.storage.get('gate-state');
-    return saved || { locked: true, updatedAt: Date.now() };
+    if (saved?.scope === 'media-games-v1') return saved;
+    const state = { locked: true, updatedAt: Date.now(), scope: 'media-games-v1' };
+    await this.ctx.storage.put('gate-state', state);
+    return state;
   }
 
   async readSessions() {
@@ -90,7 +93,7 @@ export class SiteGate extends DurableObject {
     }
     if (url.pathname === '/internal/state' && request.method === 'POST') {
       const body = await request.json().catch(() => ({}));
-      const state = { locked: body.locked !== false, updatedAt: Date.now() };
+      const state = { locked: body.locked !== false, updatedAt: Date.now(), scope: 'media-games-v1' };
       await this.ctx.storage.put('gate-state', state);
       return json({ ok: true, ...state });
     }

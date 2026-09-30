@@ -1,8 +1,10 @@
 // 보드게임 모음집 - 메인 화면 제어
 import { Net } from './net.js';
 import { $, $$, esc, avatar, toast, openModal, colorOf, beep } from './ui.js';
-import { CATEGORIES, GAMES, GENRES, voiceMode } from './catalog.js';
+import { CATEGORIES, GAMES, GENRES, voiceMode, isMeteredGame } from './catalog.js';
 import { createVoice } from './voice.js';
+import { initSiteAdmin } from './site-admin.js';
+import { createMediaGate } from './media-gate.js';
 import { GUIDES } from './guides.js';
 import { thumb, thumbSrc } from './art.js';
 import { icon } from './icons.js';
@@ -30,6 +32,7 @@ if (!localStorage.getItem('bg_name')) {
 
 // ─── 상태 ─────────────────────────────────────────────────
 const S = {
+  mediaAccess: null,
   me: null,
   games: new Set(),
   connected: false,
@@ -51,6 +54,7 @@ const net = new Net({
   onMessage,
   onStatus(st) {
     S.connected = st === 'open';
+    if (st !== 'open') voice.leave();
     const banner = $('#conn-banner');
     if (st === 'open') banner.hidden = true;
     else if (st === 'stopped') {
@@ -63,7 +67,7 @@ const net = new Net({
     }
   },
 });
-const voice = createVoice({ send: (m) => net.send(m), me: () => S.me?.uid, onChange: () => renderVoice() });
+const voice = createVoice({ send: (m) => net.send(m), me: () => S.me?.uid, game: () => S.room?.game, session: getSid, onChange: () => renderVoice() });
 const send = (m) => {
   if (!net.send(m)) toast('서버에 연결하는 중이에요. 잠시만 기다려 주세요.', 'err');
 };
@@ -113,6 +117,11 @@ function onMessage(m) {
     case 'rtc':
       voice.onSignal(m.from, m.d);
       break;
+    case 'media-closed':
+      voice.leave();
+      toast(m.msg, 'err');
+      void mediaGate.refresh();
+      break;
     case 'left':
       onLeft(m.why);
       break;
@@ -129,6 +138,7 @@ function onMessage(m) {
 
 function onRoom(m) {
   const prevId = S.room?.id;
+  if (prevId && prevId !== m.room.id) voice.leave(); // Cancel media and pending microphone prompts on room switches.
   const prevStatus = S.room?.status;
   S.room = m.room;
   S.view = m.v;
@@ -249,7 +259,7 @@ const genreOf = (g) => GENRES[GAMES[g].cat] || '';
 
 function badges(g) {
   const m = GAMES[g];
-  return `${m.isNew ? '<span class="bdg new">NEW</span>' : ''}${m.hot ? '<span class="bdg hot">HOT</span>' : ''}${m.badge ? `<span class="bdg vid">${icon('video')}${esc(m.badge)}</span>` : ''}${voiceMode(g) === 'rec' ? `<span class="bdg voice">${icon('headset')}음성</span>` : ''}${m.bots ? `<span class="bdg bot">${icon('bot')}봇</span>` : ''}`;
+  return `${isMeteredGame(g) && !S.mediaAccess?.open ? '<span class="bdg">'+icon('lock')+'잠금</span>' : ''}${m.isNew ? '<span class="bdg new">NEW</span>' : ''}${m.hot ? '<span class="bdg hot">HOT</span>' : ''}${m.badge ? `<span class="bdg vid">${icon('video')}${esc(m.badge)}</span>` : ''}${voiceMode(g) === 'rec' ? `<span class="bdg voice">${icon('headset')}음성</span>` : ''}${m.bots ? `<span class="bdg bot">${icon('bot')}봇</span>` : ''}`;
 }
 
 function gameCard(g, rank = 0) {
@@ -707,6 +717,9 @@ function renderGamePage(g) {
       if (n && d.locked) n.innerHTML = `${icon('lock')}지금은 관리자가 열어 둔 시간에만 입장할 수 있어요`;
     }).catch(() => {});
   } else if (ready) {
+    $('#quick').disabled = isMeteredGame(g) && !S.mediaAccess?.open;
+    $('#create').disabled = isMeteredGame(g) && !S.mediaAccess?.open;
+    if ($('#quick').disabled) $('#quick').textContent = '잠금 중';
     $('#quick').onclick = () => { S.expectRoom = true; send({ t: 'quick', game: g }); };
     $('#create').onclick = () => createRoomModal(g);
   }
@@ -1190,8 +1203,23 @@ setInterval(() => {
   document.title = myTurn && document.hidden ? (Math.floor(Date.now() / 1000) % 2 ? '🔔 내 차례예요!' : '보드게임 모음집') : '보드게임 모음집';
 }, 1000);
 
+const mediaGate = createMediaGate({
+  onChange(access) {
+    const changed = S.mediaAccess?.open !== access.open || S.mediaAccess?.reason !== access.reason;
+    S.mediaAccess = access;
+    if (!access.open && isMeteredGame(S.room?.game)) {
+      voice.leave();
+      net.send({ t: 'leave' });
+      onLeft('media-closed');
+      toast(access.error, 'err');
+    } else if (changed && route().page !== 'room') render();
+  }
+});
+
 // ─── 시작 ─────────────────────────────────────────────────
 $$('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
 render();
+initSiteAdmin({ notify: (message, kind) => { toast(message, kind); void mediaGate.refresh(); } });
+void mediaGate.refresh();
 net.connect();
 if (firstVisit) setTimeout(() => nameModal(true), 400);

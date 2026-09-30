@@ -31,6 +31,12 @@
         <a href="#/community" data-nav="community">커뮤니티<i class="nbadge" data-unread hidden></i></a>
       </nav>
       <div class="gnb-right">
+        <div class="site-admin-actions" aria-label="잠금 관리">
+          <a class="site-admin-link" id="avalon-admin-link" href="/avalon/admin" title="음성·화상 잠금 해제 및 관리">잠금 관리</a>
+          <button class="site-lock-btn" id="avalon-lock" type="button" hidden>
+            <span data-icon="lock" aria-hidden="true"></span><span id="avalon-lock-label">음성·화상 잠금</span>
+          </button>
+        </div>
         <span class="online" id="online"><i class="dot"></i><b>0</b>명 접속 중</span>
         <button class="me-chip" id="me-chip" type="button" title="닉네임 바꾸기">
           <span class="avatar sm" id="me-avatar"></span><span id="me-name">접속 중…</span>
@@ -39,11 +45,12 @@
     </div>
   </header>
   <div class="conn-banner" id="conn-banner" hidden>서버에 연결하는 중이에요…</div>
+  <div id="media-gate-banner" class="media-gate-banner" role="status" hidden></div>
   <main id="view"></main>
   <footer class="footer" id="footer">
     <div class="footer-in">
       <div class="f-brand"><b>보드게임 모음집</b><span>BOARD GAME COLLECTION</span></div>
-      <nav class="f-links"><a href="#/games">전체 게임</a><a href="#/rooms">열린 방</a><a href="#/community">커뮤니티</a><a href="/avalon/">아발론</a></nav>
+      <nav class="f-links"><a href="#/games">전체 게임</a><a href="#/rooms">열린 방</a><a href="#/community">커뮤니티</a><a href="/avalon/">아발론</a><a href="/avalon/admin">잠금 관리</a></nav>
       <p class="f-note">설치 없이 휴대폰과 컴퓨터에서 바로 즐기는 실시간 보드게임. 게임 이름과 그림은 원작과 관계없이 직접 만든 것이에요.</p>
       <p class="f-copy">© 보드게임 모음집 · Powered by Cloudflare Workers</p>
     </div>
