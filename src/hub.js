@@ -60,7 +60,7 @@ function attachment(ws) {
 export class Hub extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
-    this.mediaAccess = { open: false, locked: true, error: '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.' };
+    this.mediaAccess = { open: false, locked: true, error: '음성·화상 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.' };
     this.mediaCheckedAt = 0;
     this.mediaGeneration = 0;
     this.mediaGuardTimer = null;
@@ -134,28 +134,31 @@ export class Hub extends DurableObject {
     const generation = ++this.mediaGeneration;
     let access;
     try { access = await getMediaAccess(this.env); }
-    catch (error) { access = { open: false, locked: true, reason: 'gate-check-failed', error: '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.' }; }
+    catch (error) { access = { open: false, locked: true, reason: 'gate-check-failed', error: '음성·화상 상태를 확인하지 못해 미디어 기능을 잠시 사용할 수 없어요.' }; }
     // Ignore a slow read started before a newer authoritative lock notification.
     if (generation !== this.mediaGeneration) return this.mediaAccess;
     this.mediaAccess = access;
     this.mediaCheckedAt = Date.now();
-    if (!access.open) this.closeMediaRooms(access.error || '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.');
+    if (!access.open) this.disableMediaSessions(access.error || '음성·화상 기능이 잠겨 있어요. 게임은 계속할 수 있습니다.');
     return access;
   }
 
   assertMediaOpen(game) {
-    if (isMeteredGame(game) && !this.mediaAccess.open) fail(this.mediaAccess.error || '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.');
+    if (isMeteredGame(game) && !this.mediaAccess.open) fail(this.mediaAccess.error || '음성·화상 기능이 잠겨 있어요. 게임은 계속할 수 있습니다.');
   }
 
-  closeMediaRooms(message) {
-    for (const room of [...this.rooms.values()]) {
+  disableMediaSessions(message) {
+    for (const room of this.rooms.values()) {
       if (!isMeteredGame(room.game)) continue;
+      let changed = false;
       for (const member of Object.values(room.members)) {
-        if (member.bot) continue;
-        this.sendUser(member.uid, { t: 'media-closed', msg: message });
-        this.sendUser(member.uid, { t: 'left', why: 'media-closed' });
+        if (!member.voice) continue;
+        member.voice = false;
+        member.mic = false;
+        changed = true;
+        if (!member.bot) this.sendUser(member.uid, { t: 'media-closed', msg: message });
       }
-      this.deleteRoom(room);
+      if (changed) this.touchRoom(room);
     }
   }
 
@@ -285,7 +288,6 @@ export class Hub extends DurableObject {
     this.send(ws, { t: 'welcome', uid, name, now: Date.now(), games: Object.keys(MODULES) });
     const room = this.roomOf(uid);
     if (room) {
-      this.assertMediaOpen(room.game);
       const mem = room.members[uid];
       mem.online = true;
       mem.offAt = 0;
@@ -455,7 +457,6 @@ export class Hub extends DurableObject {
 
   onCreate(u, m) {
     const game = String(m.game ?? '');
-    this.assertMediaOpen(game);
     if (!Object.hasOwn(META, game) || !Object.hasOwn(MODULES, game)) fail('아직 준비 중인 게임이에요.');
     if (this.rooms.size >= MAX_ROOMS) fail('방이 너무 많아요. 잠시 후 다시 시도해 주세요.');
     this.leaveRoom(u.uid, 'switch');
@@ -482,7 +483,6 @@ export class Hub extends DurableObject {
   onJoin(u, id, watch) {
     const room = this.rooms.get(id);
     if (!room) fail('방이 없어졌어요.');
-    this.assertMediaOpen(room.game);
     if (this.memberRoom.get(u.uid) === id) {
       this.sendRoomFull(u.uid, room);
       return;
@@ -496,7 +496,6 @@ export class Hub extends DurableObject {
   }
 
   onQuick(u, game) {
-    this.assertMediaOpen(game);
     if (!Object.hasOwn(META, game) || !Object.hasOwn(MODULES, game)) fail('아직 준비 중인 게임이에요.');
     const cur = this.roomOf(u.uid);
     if (cur && cur.game === game && cur.status === 'waiting') {

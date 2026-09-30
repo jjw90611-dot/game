@@ -16,6 +16,10 @@ async function fixture() {
   const env = {
     SITE_ADMIN_PASSWORD: 'test-only-password',
     GATE: { idFromName: (s) => s, get: () => ({ fetch: (url, opts) => gate.fetch(new Request(url, opts)) }) },
+    ROOMS: { idFromName: (s) => s, get: (id) => ({ fetch: async (url) => {
+      if (new URL(url).pathname === '/internal/create') return Response.json({ ok: true, code: id, resumeToken: 'test-resume-token' }, { status: 201 });
+      return Response.json({ ok: false }, { status: 404 });
+    } }) },
     ASSETS: { fetch: async () => new Response('static content') },
   };
   const send = (path, options = {}) => worker.fetch(new Request('https://example.test/avalon' + path, options), env);
@@ -56,15 +60,21 @@ test('API: same-origin administrator cookie supports unlock, relock, logout', as
   assert.equal(res.status, 401);
 });
 
-test('API: relocking blocks new guest HTML and runtime requests', async () => {
+test('API: relocking keeps Avalon gameplay available but disables media config', async () => {
   const f = await fixture();
   const cookie = await f.login();
   await f.send('/api/admin/unlock', { method: 'POST', headers: { cookie } });
   assert.equal((await f.send('/')).status, 200);
   await f.send('/api/admin/lock', { method: 'POST', headers: { cookie } });
-  assert.equal((await f.send('/')).status, 423);
-  assert.equal((await f.send('/config')).status, 423);
-  assert.equal((await f.send('/api/rooms', { method: 'POST' })).status, 423);
+  assert.equal((await f.send('/')).status, 200);
+  const config = await f.send('/config');
+  assert.equal(config.status, 200);
+  const data = await config.json();
+  assert.deepEqual(data.iceServers, []);
+  assert.equal(data.mediaAccess.locked, true);
+  const room = await f.send('/api/rooms', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ clientId: 'locked-player', name: 'Tester' }) });
+  assert.equal(room.status, 201);
+  assert.equal((await room.json()).ok, true);
   assert.equal((await f.send('/admin')).status, 200);
 });
 

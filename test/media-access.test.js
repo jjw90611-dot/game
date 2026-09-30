@@ -89,18 +89,19 @@ test('First deployment does not inherit an old unlocked Avalon-only state', asyn
   await f.gateStorage.put('gate-state', {locked:false, updatedAt:1});
   const response=await f.request('/api/media-status');
   assert.equal((await response.json()).locked, true);
-  assert.equal((await f.gateStorage.get('gate-state')).scope,'media-games-v1');
+  assert.equal((await f.gateStorage.get('gate-state')).scope,'media-features-v2');
 });
 
-test('Every protected main game rejects create and quick-start on an existing socket while locked', async t => {
+test('Every main game still allows create and quick-start while media is locked', async t => {
   const f=await fixture(t);
   for (const game of voiceIds) {
     const u=await f.user();
-    for (const command of ['create','quick']) {
-      await u.send({t:command, game});
-      assert.equal(f.hub.roomOf(u.uid), null, game + ' must not admit');
-      assert.equal(u.socket.sent.at(-1).t, 'err');
-    }
+    await u.send({t:'create', game});
+    assert.equal(f.hub.roomOf(u.uid)?.game, game, game + ' create must remain available');
+    const room=f.hub.roomOf(u.uid);
+    await u.send({t:'voice',on:true,mic:true});
+    assert.equal(!!room.members[u.uid].voice, false, game + ' voice must stay locked');
+    assert.equal(u.socket.sent.at(-1).t, 'err');
   }
   const visitor=await f.user();
   for (const game of ['song','chosung']) {
@@ -117,21 +118,32 @@ test('Unlocked policy admits each of the 22 main voice games', async t => {
   }
 });
 
-test('Admin relock closes existing media rooms, keeps public rooms, and cannot be bypassed by admin cookies', async t => {
+test('Admin relock disables active voice and TURN while keeping game rooms usable', async t => {
   const f=await fixture(t); await f.lockState(false); const media=await f.user(); const normal=await f.user();
-  await media.send({t:'create',game:'omok'}); await normal.send({t:'create',game:'song'});
-  const oldId=f.hub.roomOf(media.uid).id; const cookie=await f.admin();
+  await media.send({t:'create',game:'omok'}); await media.send({t:'voice',on:true,mic:true});
+  const oldId=f.hub.roomOf(media.uid).id;
+  assert.equal(f.hub.roomOf(media.uid).members[media.uid].voice,true);
+  await normal.send({t:'create',game:'song'});
+  const cookie=await f.admin();
   const res=await f.request('/avalon/api/admin/lock',{method:'POST',headers:{cookie}});
   assert.equal((await res.json()).locked,true);
-  assert.equal(f.hub.roomOf(media.uid),null);
+  assert.equal(f.hub.roomOf(media.uid)?.id,oldId);
+  assert.equal(f.hub.roomOf(media.uid).members[media.uid].voice,false);
   assert.equal(f.hub.roomOf(normal.uid).game,'song');
   assert.ok(media.socket.sent.some(m=>m.t==='media-closed'));
-  await normal.send({t:'join',id:oldId,watch:true});
-  assert.equal(f.hub.roomOf(normal.uid).game,'song');
-  for(const path of ['/api/ice?game=omok','/avalon/config','/avalon/api/rooms','/avalon/ws/ABCDE']) {
-    const r=await f.request(path,{method:path.endsWith('rooms')?'POST':'GET',headers:{cookie,'x-game-session':media.sid}});
-    assert.equal(r.status,423,path);
-  }
+  const joiner=await f.user();
+  await joiner.send({t:'join',id:oldId});
+  assert.equal(f.hub.roomOf(joiner.uid)?.id,oldId);
+  await joiner.send({t:'voice',on:true,mic:true});
+  assert.equal(!!f.hub.roomOf(joiner.uid).members[joiner.uid].voice,false);
+  assert.equal((await f.request('/api/ice?game=omok',{headers:{cookie,'x-game-session':media.sid}})).status,423);
+  const cfg=await f.request('/avalon/config',{headers:{cookie}});
+  assert.equal(cfg.status,200);
+  const data=await cfg.json();
+  assert.deepEqual(data.iceServers,[]);
+  assert.equal(data.mediaAccess.open,false);
+  assert.equal((await f.request('/avalon/api/rooms',{method:'POST',headers:{cookie}})).status,400);
+  assert.equal((await f.request('/avalon/ws/ABCDE',{headers:{cookie}})).status,426);
 });
 
 test('Guest cannot change common gate; cross-origin administrative writes are rejected', async t => {
@@ -169,7 +181,7 @@ test('TURN endpoint requires a real connected member and refuses non-media games
   assert.equal((await f.request('/api/ice?game=omok',{headers:{...headers,origin:'https://other.test'}})).status,403);
 });
 
-test('800GB cap stops all protected rooms and fresh credentials but leaves voice-off games available', async t => {
+test('800GB cap disables media and fresh TURN credentials while every game remains playable', async t => {
   const f=await fixture(t); await f.lockState(false);
   Object.assign(f.env,{TURN_KEY_ID:'cap-test-key',TURN_KEY_API_TOKEN:'fake',CF_ACCOUNT_ID:'fake',CF_ANALYTICS_API_TOKEN:'fake'});
   let bytes=0, generated=0;
@@ -180,22 +192,30 @@ test('800GB cap stops all protected rooms and fresh credentials but leaves voice
   };
   t.after(()=>{globalThis.fetch=original;});
   const a=await f.user(); const b=await f.user();
-  await a.send({t:'create',game:'omok'}); await b.send({t:'create',game:'song'});
-  assert.ok(f.hub.roomOf(a.uid));
+  await a.send({t:'create',game:'omok'}); await a.send({t:'voice',on:true,mic:true});
+  await b.send({t:'create',game:'song'});
+  assert.equal(f.hub.roomOf(a.uid).members[a.uid].voice,true);
   bytes=800_000_000_000;
   const usage=await f.access.getTurnUsageStatus(f.env,true); assert.equal(usage.blocked,true);
   await f.hub.refreshMediaAccess(true);
-  assert.equal(f.hub.roomOf(a.uid),null); assert.equal(f.hub.roomOf(b.uid).game,'song');
-  await a.send({t:'create',game:'mafia'}); assert.equal(f.hub.roomOf(a.uid),null);
-  assert.equal((await f.request('/api/ice?game=omok',{headers:{'x-game-session':a.sid}})).status,503);
-  assert.equal((await f.request('/avalon/api/rooms',{method:'POST'})).status,503);
-  assert.equal((await f.request('/avalon/config')).status,503);
+  assert.equal(f.hub.roomOf(a.uid)?.game,'omok');
+  assert.equal(f.hub.roomOf(a.uid).members[a.uid].voice,false);
+  assert.equal(f.hub.roomOf(b.uid).game,'song');
+  await a.send({t:'create',game:'mafia'}); assert.equal(f.hub.roomOf(a.uid)?.game,'mafia');
+  assert.equal((await f.request('/api/ice?game=mafia',{headers:{'x-game-session':a.sid}})).status,503);
+  const config=await f.request('/avalon/config');
+  assert.equal(config.status,200);
+  const data=await config.json();
+  assert.deepEqual(data.iceServers,[]);
+  assert.equal(data.mediaAccess.blocked,true);
+  assert.equal((await f.request('/avalon/api/rooms',{method:'POST'})).status,400);
   assert.equal(generated,0);
 });
 
-test('Gate outage fails closed for protected games without blocking public games', async t => {
+test('Gate outage fails closed for media without blocking gameplay', async t => {
   const f=await fixture(t); await f.lockState(false); const u=await f.user();
-  f.gateFail(); await u.send({t:'create',game:'omok'}); assert.equal(f.hub.roomOf(u.uid),null);
+  f.gateFail(); await u.send({t:'create',game:'omok'}); assert.equal(f.hub.roomOf(u.uid)?.game,'omok');
+  await u.send({t:'voice',on:true,mic:true}); assert.equal(!!f.hub.roomOf(u.uid).members[u.uid].voice,false);
   await u.send({t:'create',game:'chosung'}); assert.equal(f.hub.roomOf(u.uid).game,'chosung');
   assert.equal((await f.request('/api/ice?game=omok')).status,423);
 });

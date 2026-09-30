@@ -46,10 +46,10 @@ function ackPayload(ws, requestId) {
   return ws.sent.findLast(x => x.type === 'ack' && x.requestId === requestId)?.payload;
 }
 
-async function setupGame(playerCount = 5) {
+async function setupGame(playerCount = 5, env = {}) {
   const AvalonRoom = await loadRoomClass();
   const ctx = new MockCtx();
-  const roomObj = new AvalonRoom(ctx, {});
+  const roomObj = new AvalonRoom(ctx, env);
   const hostCreate = await roomObj.fetch(new Request('https://room/internal/create', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ code: 'ABCDE', clientId: 'p1', name: 'P1' })
@@ -112,6 +112,26 @@ async function proposeTeamWithEvil(roomObj, sockets) {
   assert.equal(roomObj.room.phase, 'team_vote');
   return { team, evil };
 }
+
+
+test('Durable Object runtime: media lock blocks WebRTC but not Avalon gameplay', async () => {
+  const gate = {
+    idFromName: name => name,
+    get: () => ({ fetch: async () => Response.json({ locked: true, mediaLocked: true }) })
+  };
+  const { roomObj, sockets } = await setupGame(5, { GATE: gate });
+  await roomObj.handleEvent(sockets.get('p1'), 'start-game', {}, 'locked-start');
+  assert.equal(ackPayload(sockets.get('p1'), 'locked-start')?.ok, true);
+  assert.equal(roomObj.room.phase, 'role_reveal');
+
+  await roomObj.handleEvent(sockets.get('p1'), 'webrtc-ready', {}, 'locked-webrtc');
+  const rtcAck = ackPayload(sockets.get('p1'), 'locked-webrtc');
+  assert.equal(rtcAck?.ok, false);
+  assert.match(rtcAck?.error || '', /음성·화상/);
+
+  await readyAll(roomObj, sockets);
+  assert.equal(roomObj.room.phase, 'team_building');
+});
 
 test('Durable Object runtime: 5 players can play through three failed missions', async () => {
   const { roomObj, sockets } = await setupGame(5);

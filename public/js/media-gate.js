@@ -1,4 +1,4 @@
-// Presentation only. Admission is enforced again by the Worker and game Hub.
+// Presentation only. Media authorization is enforced again by the Worker and game Hub.
 export function createMediaGate({
   doc = document, win = window, request = (...args) => fetch(...args), onChange = () => {}
 } = {}) {
@@ -14,14 +14,14 @@ export function createMediaGate({
         const r = await request('/api/media-status', { cache: 'no-store', credentials: 'same-origin', signal: controller.signal });
         access = await r.json();
         if (!r.ok || access.ok !== true || typeof access.open !== 'boolean') throw new Error('Invalid media gate');
-      } catch { access = { open: false, locked: true, reason: 'status-unavailable', error: '잠금 상태를 확인하지 못했습니다. 음성·화상 게임 입장을 일시 제한합니다.' }; }
+      } catch { access = { open: false, locked: true, reason: 'status-unavailable', error: '잠금 상태를 확인하지 못해 음성·화상 기능을 일시 중지합니다. 게임은 계속 이용할 수 있습니다.' }; }
       finally { clearTimeout(timeout); }
       if (destroyed) return;
       const banner = doc.getElementById('media-gate-banner');
       if (banner) {
         banner.hidden = false;
         banner.classList.toggle('is-open', access.open);
-        banner.textContent = access.open ? '음성·화상 게임 23개 열림 · TURN 월 한도를 함께 사용합니다.' : (access.error || '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.') + ' ' + '노래 맞히기와 초성 퀴즈는 계속 이용할 수 있습니다.';
+        banner.textContent = access.open ? '음성·화상 기능 사용 가능 · 필요할 때만 TURN 월 한도를 함께 사용합니다.' : (access.error || '음성·화상 기능이 잠겨 있습니다.') + ' 모든 게임은 계속 이용할 수 있습니다.';
       }
       onChange(access);
       return access;

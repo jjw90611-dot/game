@@ -26,7 +26,7 @@ export class AvalonRoom extends DurableObject {
     this.env = env;
     this.room = undefined;
     this.queue = Promise.resolve();
-    this.gateCache = { locked: false, expiresAt: 0 };
+    this.gateCache = { mediaLocked: true, expiresAt: 0 };
   }
 
   enqueue(fn) {
@@ -319,17 +319,18 @@ export class AvalonRoom extends DurableObject {
     return this.finishGame(room, 'good', `${target.name}님은 멀린이 아니었습니다. 컴퓨터 암살자의 지목이 빗나갔습니다.`);
   }
 
-  async siteLocked() {
+  async mediaLocked() {
     if (!this.env.GATE) return false;
-    if (this.gateCache.expiresAt > Date.now()) return this.gateCache.locked;
+    if (this.gateCache.expiresAt > Date.now()) return this.gateCache.mediaLocked;
     try {
       const stub = this.env.GATE.get(this.env.GATE.idFromName('AVALON_GLOBAL_GATE'));
       const res = await stub.fetch('https://gate/internal/status');
       const data = await res.json();
-      this.gateCache = { locked: !!data.locked, expiresAt: Date.now() + 5000 };
-      return this.gateCache.locked;
+      const mediaLocked = typeof data.mediaLocked === 'boolean' ? data.mediaLocked : !!data.locked;
+      this.gateCache = { mediaLocked, expiresAt: Date.now() + 5000 };
+      return mediaLocked;
     } catch (_) {
-      this.gateCache = { locked: true, expiresAt: Date.now() + 3000 };
+      this.gateCache = { mediaLocked: true, expiresAt: Date.now() + 3000 };
       return true;
     }
   }
@@ -644,10 +645,6 @@ export class AvalonRoom extends DurableObject {
     const room = await this.loadRoom();
     if (!room) return this.sendAck(ws, requestId, { ok: false, error: '\ubc29\uc744 \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.' });
     const a = this.attachment(ws);
-
-    if (event !== 'leave-room' && await this.siteLocked()) {
-      return this.sendAck(ws, requestId, { ok: false, error: '관리자가 현재 사이트를 잠가 두었습니다.' });
-    }
 
     if (event === 'join-room') {
       const code = String(payload.code || '').trim().toUpperCase();
@@ -985,6 +982,7 @@ export class AvalonRoom extends DurableObject {
     }
 
     if (event === 'webrtc-ready') {
+      if (await this.mediaLocked()) return this.sendAck(ws, requestId, { ok: false, error: '음성·화상 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.' });
       if (!player.isParticipant) return this.sendAck(ws, requestId, { ok: true, peers: [] });
       const peers = this.connectedPlayers(room)
         .filter(p => p.socketId !== a.socketId)
@@ -993,6 +991,7 @@ export class AvalonRoom extends DurableObject {
     }
 
     if (['rtc-offer', 'rtc-answer', 'rtc-ice'].includes(event)) {
+      if (await this.mediaLocked()) return;
       if (!player.isParticipant) return;
       const targetSocketId = String(payload.targetSocketId || '');
       if (!targetSocketId) return;

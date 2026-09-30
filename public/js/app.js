@@ -119,7 +119,9 @@ function onMessage(m) {
       break;
     case 'media-closed':
       voice.leave();
-      toast(m.msg, 'err');
+      toast(m.msg || '음성·화상 기능이 잠겼습니다. 게임은 계속할 수 있어요.', 'err');
+      renderVoice();
+      if (S.room?.status === 'waiting') renderStage();
       void mediaGate.refresh();
       break;
     case 'left':
@@ -259,7 +261,7 @@ const genreOf = (g) => GENRES[GAMES[g].cat] || '';
 
 function badges(g) {
   const m = GAMES[g];
-  return `${isMeteredGame(g) && !S.mediaAccess?.open ? '<span class="bdg">'+icon('lock')+'잠금</span>' : ''}${m.isNew ? '<span class="bdg new">NEW</span>' : ''}${m.hot ? '<span class="bdg hot">HOT</span>' : ''}${m.badge ? `<span class="bdg vid">${icon('video')}${esc(m.badge)}</span>` : ''}${voiceMode(g) === 'rec' ? `<span class="bdg voice">${icon('headset')}음성</span>` : ''}${m.bots ? `<span class="bdg bot">${icon('bot')}봇</span>` : ''}`;
+  return `${isMeteredGame(g) && S.mediaAccess && !S.mediaAccess.open ? `<span class="bdg">${icon('micoff')}${voiceMode(g) === 'video' ? '화상 잠금' : '음성 잠금'}</span>` : ''}${m.isNew ? '<span class="bdg new">NEW</span>' : ''}${m.hot ? '<span class="bdg hot">HOT</span>' : ''}${m.badge ? `<span class="bdg vid">${icon('video')}${esc(m.badge)}</span>` : ''}${voiceMode(g) === 'rec' ? `<span class="bdg voice">${icon('headset')}음성</span>` : ''}${m.bots ? `<span class="bdg bot">${icon('bot')}봇</span>` : ''}`;
 }
 
 function gameCard(g, rank = 0) {
@@ -712,14 +714,11 @@ function renderGamePage(g) {
     ${related.length ? `<div class="wrap"><section class="sec">${secHead('비슷한 게임', genreOf(g), `#/games/${meta.cat}`)}<div class="cards">${related.map((x) => gameCard(x)).join('')}</div></section></div>` : ''}
   </div>`;
   if (ext) {
-    fetch('/avalon/api/site-status', { cache: 'no-store' }).then((r) => r.json()).then((d) => {
+    fetch('/api/media-status', { cache: 'no-store' }).then((r) => r.json()).then((d) => {
       const n = $('#gate-note');
-      if (n && d.locked) n.innerHTML = `${icon('lock')}지금은 관리자가 열어 둔 시간에만 입장할 수 있어요`;
+      if (n && d.open === false) n.innerHTML = `${icon('micoff')}음성·화상은 잠겨 있지만 게임은 이용할 수 있어요`;
     }).catch(() => {});
   } else if (ready) {
-    $('#quick').disabled = isMeteredGame(g) && !S.mediaAccess?.open;
-    $('#create').disabled = isMeteredGame(g) && !S.mediaAccess?.open;
-    if ($('#quick').disabled) $('#quick').textContent = '잠금 중';
     $('#quick').onclick = () => { S.expectRoom = true; send({ t: 'quick', game: g }); };
     $('#create').onclick = () => createRoomModal(g);
   }
@@ -859,6 +858,7 @@ function voiceForced() {
 
 async function joinVoice() {
   try {
+    if (S.mediaAccess?.open === false) throw new Error(S.mediaAccess.error || '음성 기능이 잠겨 있어요. 게임은 계속할 수 있습니다.');
     await voice.join();
     toast(voiceMode(S.room?.game) === 'rec' ? '음성 채팅에 참여했어요! 이어폰을 쓰면 울림이 줄어요.' : '음성 채팅에 참여했어요.', 'good');
     renderStage();
@@ -874,7 +874,9 @@ function renderVoice() {
     const mode = voiceMode(S.room.game);
     const inVoice = S.room.members.filter((m) => m.voice).length;
     if (mode === 'off' || mode === 'video') box.innerHTML = '';
-    else if (!voice.active) {
+    else if (S.mediaAccess?.open === false) {
+      box.innerHTML = `<button class="btn sm vbtn" type="button" disabled title="음성 기능이 잠겨 있어요. 게임은 계속할 수 있습니다.">${icon('micoff')}<span class="lbl">음성 잠금</span></button>`;
+    } else if (!voice.active) {
       box.innerHTML = `<button class="btn sm vbtn ${mode === 'rec' ? 'rec' : ''}" type="button" data-vjoin title="음성 채팅 참여">${icon('headset')}<span class="lbl">음성${inVoice ? ` ${inVoice}` : ''}</span></button>`;
     } else {
       const on = voice.micOn && !voice.forced;
@@ -1105,7 +1107,7 @@ function renderWaiting() {
   root.innerHTML = `<div class="waiting">
     ${r.result ? `<div class="result-card"><div class="res-t">${icon('trophy')}<span>${esc(r.result.text)}</span></div><div class="res-w">한 판 더 하려면 방장이 게임을 시작하면 돼요!</div></div>` : ''}
     <div class="wait-head"><h2>${esc(meta.name)} 대기실</h2><p>${playersText(r.game)} · ${need ? `<b style="color:var(--accent)">${need}명 더</b> 모이면 시작할 수 있어요` : '모두 모였어요! 준비되면 시작하세요'}</p></div>
-    ${voiceMode(r.game) === 'rec' && !voice.active ? `<div class="voice-invite"><span class="vi-ico">${icon('headset')}</span><div><b>이 게임은 음성으로 하면 훨씬 재밌어요!</b><small>마이크를 켜고 목소리로 대화하며 추리해 보세요. (이어폰 사용을 추천해요)</small></div><button class="btn primary" type="button" data-voice-join>${icon('mic')}음성 참여</button></div>` : ''}
+    ${voiceMode(r.game) === 'rec' && !voice.active ? (S.mediaAccess?.open === false ? `<div class="voice-invite"><span class="vi-ico">${icon('micoff')}</span><div><b>음성 기능이 잠겨 있어요</b><small>게임은 그대로 이용할 수 있습니다. 관리자가 잠금을 해제하면 음성 참여 버튼이 다시 열립니다.</small></div></div>` : `<div class="voice-invite"><span class="vi-ico">${icon('headset')}</span><div><b>이 게임은 음성으로 하면 훨씬 재밌어요!</b><small>마이크를 켜고 목소리로 대화하며 추리해 보세요. (이어폰 사용을 추천해요)</small></div><button class="btn primary" type="button" data-voice-join>${icon('mic')}음성 참여</button></div>`) : ''}
     <div class="seats">${slots.join('')}</div>
     ${opts.length ? `<div class="panel"><div class="panel-head"><h3>게임 설정</h3>${isHost ? '' : '<span class="small muted">방장만 바꿀 수 있어요</span>'}</div><div class="opts">
       ${opts.map((o) => `<div class="opt"><label>${esc(o.label)}</label>${isHost
@@ -1207,12 +1209,14 @@ const mediaGate = createMediaGate({
   onChange(access) {
     const changed = S.mediaAccess?.open !== access.open || S.mediaAccess?.reason !== access.reason;
     S.mediaAccess = access;
-    if (!access.open && isMeteredGame(S.room?.game)) {
+    if (!access.open && voice.active) {
       voice.leave();
-      net.send({ t: 'leave' });
-      onLeft('media-closed');
-      toast(access.error, 'err');
-    } else if (changed && route().page !== 'room') render();
+      toast(access.error || '음성·화상 기능이 잠겼습니다. 게임은 계속할 수 있어요.', 'err');
+    }
+    if (changed) {
+      if (route().page === 'room') { renderVoice(); if (S.room?.status === 'waiting') renderStage(); }
+      else render();
+    }
   }
 });
 

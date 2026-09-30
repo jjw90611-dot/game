@@ -71,7 +71,9 @@ let currentName = localStorage.getItem('avalonLiveName') || localStorage.getItem
 let pendingEntry = null;
 let iceServers = [{ urls: ['stun:stun.cloudflare.com:3478'] }];
 let turnUsage = null;
-let serviceBlocked = false;
+let manualMediaLocked = true;
+let usageMediaBlocked = false;
+let mediaBlocked = true;
 let usagePollTimer = null;
 let sitePollTimer = null;
 let rtcRosterSignature = '';
@@ -120,8 +122,8 @@ function showToast(message, ms = 2600) {
 }
 function setEntryError(message = '') { els.entryError.textContent = message; }
 function setEntryBusy(busy) {
-  els.createBtn.disabled = busy || serviceBlocked;
-  els.joinBtn.disabled = busy || serviceBlocked;
+  els.createBtn.disabled = busy;
+  els.joinBtn.disabled = busy;
   els.createBtn.innerHTML = busy ? '<span>왕국과 연결 중…</span><small>잠시만 기다려주세요</small>' : '<span>새 원탁 열기</span><small>내가 방장이 됩니다</small>';
   els.joinBtn.textContent = busy ? '입장 준비 중…' : '초대받은 원탁 입장';
 }
@@ -133,36 +135,41 @@ function formatUsage(usage) {
   if (!usage) return '';
   return `${Number(usage.usageGB || 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}GB / ${Number(usage.capGB || 800).toLocaleString('ko-KR')}GB`;
 }
-function stopLiveSessionForCap() {
-  serviceBlocked = true;
-  pendingEntry = null;
+function applyMediaBlockState(message = '') {
+  const next = manualMediaLocked || usageMediaBlocked;
+  const changed = mediaBlocked !== next;
+  mediaBlocked = next;
   setEntryBusy(false);
-  setEntryError(`TURN 월간 안전 한도(${turnUsage?.capGB || 800}GB)에 도달해 이번 달 게임 서비스를 자동 일시정지했습니다.`);
-  showConnection(`안전 정지 · TURN 사용량 ${formatUsage(turnUsage)}`);
-  if (socket) socket.disconnect();
-  for (const { pc } of peers.values()) { try { pc.close(); } catch (_) {} }
-  peers.clear(); remoteStreams.clear(); peerSocketByClient.clear(); pendingIce.clear();
-  if (localStream) for (const track of localStream.getTracks()) track.enabled = false;
-  renderVideoGrid();
-  if (els.gameControls && !els.gameScreen.classList.contains('hidden')) {
-    els.gameControls.innerHTML = section('월간 사용량 안전 정지', `TURN 사용량이 설정된 ${turnUsage?.capGB || 800}GB 안전 한도에 도달했습니다. 추가 과금을 피하기 위해 새 연결과 게임 진행을 중지했습니다.`, `<div class="result-box bad"><strong>${formatUsage(turnUsage)}</strong><span>다음 월 사용량이 초기화된 뒤 다시 접속해주세요.</span></div>`);
+  if (mediaBlocked) {
+    rtcRosterSignature = '';
+    clearRtcPeers();
+    if (localStream) { for (const track of localStream.getTracks()) track.stop(); localStream = null; }
+    applyLocalTrackState();
+    if (currentState) renderVideoGrid();
+    if (currentState && message) showConnection(message);
+  } else {
+    updateMediaButtons();
+    if (changed && currentState && socket?.connected) {
+      showConnection('');
+      syncParticipationRtc().catch(err => console.warn('media resume sync', err));
+    }
   }
+  return changed;
 }
 function applyUsageStatus(usage) {
   turnUsage = usage || turnUsage;
-  if (turnUsage?.blocked) {
-    stopLiveSessionForCap();
-    return;
-  }
-  serviceBlocked = false;
-  setEntryBusy(false);
-  if (turnUsage?.turnConfigured && !turnUsage?.turnAllowed) {
-    const msg = turnUsage.reason === 'usage-guard-not-configured'
-      ? 'TURN 사용량 안전장치가 아직 설정되지 않아 안전을 위해 TURN은 꺼져 있고 STUN만 사용합니다.'
+  usageMediaBlocked = !!turnUsage?.blocked;
+  const msg = usageMediaBlocked
+    ? `TURN 월간 안전 한도(${turnUsage?.capGB || 800}GB)에 도달해 음성·화상만 중지했습니다. 게임은 계속 진행할 수 있습니다.`
+    : '';
+  applyMediaBlockState(msg);
+  if (!mediaBlocked && turnUsage?.turnConfigured && !turnUsage?.turnAllowed) {
+    const notice = turnUsage.reason === 'usage-guard-not-configured'
+      ? 'TURN 사용량 안전장치가 아직 설정되지 않아 TURN은 꺼져 있고 직접 연결(STUN)만 사용합니다.'
       : turnUsage.reason === 'usage-check-failed'
-        ? 'TURN 사용량 확인에 실패해 안전을 위해 TURN은 꺼져 있고 STUN만 사용합니다.'
+        ? 'TURN 사용량 확인에 실패해 TURN은 꺼져 있고 직접 연결(STUN)만 사용합니다.'
         : '';
-    if (msg && !els.gameScreen.classList.contains('hidden')) showConnection(msg);
+    if (notice && !els.gameScreen.classList.contains('hidden')) showConnection(notice);
   }
 }
 
@@ -171,9 +178,16 @@ async function loadConfig() {
     const res = await fetch(AVALON_BASE + '/config', { cache: 'no-store' });
     const cfg = await res.json();
     if (Array.isArray(cfg.iceServers) && cfg.iceServers.length) iceServers = cfg.iceServers;
-    applyUsageStatus(cfg.turnUsage);
+    if (cfg.mediaAccess) {
+      manualMediaLocked = !!cfg.mediaAccess.locked;
+      usageMediaBlocked = !!cfg.mediaAccess.blocked;
+    }
+    if (cfg.turnUsage) applyUsageStatus(cfg.turnUsage);
+    else applyMediaBlockState(manualMediaLocked ? '음성·화상 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.' : '');
     return cfg;
   } catch (_) {
+    manualMediaLocked = true;
+    applyMediaBlockState('음성·화상 상태를 확인하지 못해 미디어 기능만 잠시 중지합니다. 게임은 계속 이용할 수 있습니다.');
     return null;
   }
 }
@@ -202,30 +216,37 @@ async function checkSiteGate() {
     const res = await fetch(AVALON_BASE + '/api/site-status', { cache: 'no-store' });
     const data = await res.json();
     syncAdminSiteLockButtons(data);
-    if (data?.locked) {
-      if (socket) { try { socket.disconnect(); } catch (_) {} }
-      if (localStream) for (const track of localStream.getTracks()) track.stop();
-      location.reload();
-      return false;
-    }
-    return true;
-  } catch (_) { return true; }
+    manualMediaLocked = !!data?.locked;
+    if (typeof data?.usageBlocked === 'boolean') usageMediaBlocked = data.usageBlocked;
+    const message = manualMediaLocked
+      ? '관리자가 음성·화상 기능을 잠갔습니다. 게임은 계속 이용할 수 있습니다.'
+      : usageMediaBlocked
+        ? `TURN 월간 안전 한도(${turnUsage?.capGB || 800}GB)에 도달해 음성·화상만 중지했습니다. 게임은 계속 진행할 수 있습니다.`
+        : '';
+    applyMediaBlockState(message);
+    return !mediaBlocked;
+  } catch (_) {
+    manualMediaLocked = true;
+    applyMediaBlockState('잠금 상태를 확인하지 못해 음성·화상 기능만 일시 중지합니다. 게임은 계속 이용할 수 있습니다.');
+    return false;
+  }
 }
 
 async function lockSiteFromMain() {
-  if (!confirm('아발론과 음성 게임 23개를 함께 잠그면 새 접속이 즉시 차단되고, 현재 접속자도 잠금 상태를 확인하는 즉시 게임에서 나가게 됩니다. 정말 사이트를 잠글까요?')) return;
+  if (!confirm('음성·화상 기능을 잠글까요? 게임 방 생성·입장·진행은 그대로 사용할 수 있고, 카메라·마이크와 새 TURN 연결만 중지됩니다.')) return;
   for (const btn of siteLockButtons) btn.disabled = true;
   try {
     const res = await fetch(AVALON_BASE + '/api/admin/lock', { method: 'POST' });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data?.ok) throw new Error(data?.error || '사이트를 잠글 수 없습니다.');
+    if (!res.ok || !data?.ok) throw new Error(data?.error || '음성·화상 기능을 잠글 수 없습니다.');
+    manualMediaLocked = true;
+    applyMediaBlockState('음성·화상 기능을 잠갔습니다. 게임은 계속 이용할 수 있습니다.');
     await fetch(AVALON_BASE + '/api/admin/logout', { method: 'POST' }).catch(() => {});
-    if (socket) { try { socket.disconnect(); } catch (_) {} }
-    if (localStream) for (const track of localStream.getTracks()) track.stop();
-    location.href = AVALON_BASE + '/';
+    syncAdminSiteLockButtons({ admin: false, locked: true });
+    showToast('음성·화상 기능을 잠갔습니다. 게임은 계속 이용할 수 있습니다.', 4200);
   } catch (err) {
     for (const btn of siteLockButtons) btn.disabled = false;
-    showToast(err?.message || '사이트 잠금에 실패했습니다.', 4200);
+    showToast(err?.message || '음성·화상 기능 잠금에 실패했습니다.', 4200);
   }
 }
 function startSitePolling() {
@@ -234,6 +255,7 @@ function startSitePolling() {
 }
 
 async function ensureMedia() {
+  if (mediaBlocked) throw new Error('음성·화상 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.');
   if (localStream) return localStream;
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('이 브라우저는 카메라/마이크 연결을 지원하지 않습니다. 최신 Chrome 또는 Safari를 사용해주세요.');
   if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
@@ -255,8 +277,8 @@ function applyLocalTrackState() {
   if (!localStream) { updateMediaButtons(); return; }
   const participant = isParticipant();
   const autoSilence = !!currentState?.autoSilence;
-  for (const track of localStream.getVideoTracks()) track.enabled = participant && !serviceBlocked && cameraEnabled && !currentState?.coverFaces;
-  for (const track of localStream.getAudioTracks()) track.enabled = participant && !serviceBlocked && micEnabled && !autoSilence;
+  for (const track of localStream.getVideoTracks()) track.enabled = participant && !mediaBlocked && cameraEnabled && !currentState?.coverFaces;
+  for (const track of localStream.getAudioTracks()) track.enabled = participant && !mediaBlocked && micEnabled && !autoSilence;
   updateMediaButtons();
 }
 function updateMediaButtons() {
@@ -265,24 +287,23 @@ function updateMediaButtons() {
   els.voiceBtn.textContent = '🔊';
   els.voiceBtn.disabled = true;
   els.voiceBtn.title = '사회자 음성 · Yuna 고정 · 항상 켜짐';
-  els.cameraBtn.disabled = !participant;
-  els.micBtn.disabled = !participant;
-  els.cameraBtn.classList.toggle('active', participant && !serviceBlocked && cameraEnabled && !currentState?.coverFaces);
-  els.cameraBtn.textContent = !participant ? '👁' : currentState?.coverFaces ? '🎭' : (cameraEnabled ? '📹' : '🚫');
-  els.cameraBtn.title = !participant ? '관전자 모드에서는 영상이 사용되지 않습니다.' : currentState?.coverFaces ? '비밀 단계에서는 영상 송출이 자동 중지됩니다.' : '카메라 켜기/끄기';
-  els.micBtn.classList.toggle('active', participant && !serviceBlocked && micEnabled && !currentState?.autoSilence);
-  els.micBtn.textContent = participant && !serviceBlocked && micEnabled && !currentState?.autoSilence ? '🎙️' : '🔇';
-  els.micBtn.title = !participant ? '관전자 모드에서는 마이크가 사용되지 않습니다.' : currentState?.autoSilence ? '비밀 단계에서는 마이크가 자동 음소거됩니다.' : '마이크 켜기/끄기';
+  els.cameraBtn.disabled = !participant || mediaBlocked;
+  els.micBtn.disabled = !participant || mediaBlocked;
+  els.cameraBtn.classList.toggle('active', participant && !mediaBlocked && cameraEnabled && !currentState?.coverFaces);
+  els.cameraBtn.textContent = mediaBlocked ? '🚫' : !participant ? '👁' : currentState?.coverFaces ? '🎭' : (cameraEnabled ? '📹' : '🚫');
+  els.cameraBtn.title = mediaBlocked ? '음성·화상 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.' : !participant ? '관전자 모드에서는 영상이 사용되지 않습니다.' : currentState?.coverFaces ? '비밀 단계에서는 영상 송출이 자동 중지됩니다.' : '카메라 켜기/끄기';
+  els.micBtn.classList.toggle('active', participant && !mediaBlocked && micEnabled && !currentState?.autoSilence);
+  els.micBtn.textContent = participant && !mediaBlocked && micEnabled && !currentState?.autoSilence ? '🎙️' : '🔇';
+  els.micBtn.title = mediaBlocked ? '음성·화상 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.' : !participant ? '관전자 모드에서는 마이크가 사용되지 않습니다.' : currentState?.autoSilence ? '비밀 단계에서는 마이크가 자동 음소거됩니다.' : '마이크 켜기/끄기';
 }
 
 function bindSocket(roomCode) {
-  if (serviceBlocked) return;
   if (socket?.roomCode === String(roomCode || '').toUpperCase()) return;
   if (socket) socket.disconnect();
   socket = new CloudSocket(roomCode);
 
   socket.on('connect', () => {
-    showConnection('');
+    showConnection(mediaBlocked ? '음성·화상 기능은 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.' : '');
     if (pendingEntry) {
       const entry = pendingEntry;
       pendingEntry = null;
@@ -299,11 +320,11 @@ function bindSocket(roomCode) {
     for (const { pc } of peers.values()) { try { pc.close(); } catch (_) {} }
     peers.clear(); remoteStreams.clear(); peerSocketByClient.clear(); pendingIce.clear();
     renderVideoGrid();
-    if (!serviceBlocked) showConnection('연결이 끊겼습니다. 자동으로 재접속 중…');
+    showConnection('게임 서버 연결이 끊겼습니다. 자동으로 재접속 중…');
   });
   socket.on('connect_error', async () => {
     await checkUsageGuard(true);
-    if (!serviceBlocked) showConnection('서버에 연결할 수 없습니다. 네트워크를 확인해주세요.');
+    showConnection('게임 서버에 연결할 수 없습니다. 네트워크를 확인해주세요.');
   });
   socket.on('room-state', state => {
     const phaseChanged = lastPhase && lastPhase !== state.phase;
@@ -347,12 +368,13 @@ function bindSocket(roomCode) {
   });
 
   socket.on('peer-joined', peer => {
-    if (!isParticipant() || !playerById(peer.clientId)?.isParticipant) return;
+    if (mediaBlocked || !isParticipant() || !playerById(peer.clientId)?.isParticipant) return;
     peerSocketByClient.set(peer.clientId, peer.socketId);
     if (!peers.has(peer.socketId) && socket.id < peer.socketId) createOfferTo(peer).catch(() => {});
   });
   socket.on('peer-left', peer => removePeer(peer.socketId, peer.clientId));
   socket.on('rtc-offer', async data => {
+    if (mediaBlocked) return;
     try {
       const record = ensurePeer(data.sourceSocketId, data.sourceClientId);
       await record.pc.setRemoteDescription(data.sdp);
@@ -364,6 +386,7 @@ function bindSocket(roomCode) {
     } catch (err) { console.warn('RTC offer error', err); }
   });
   socket.on('rtc-answer', async data => {
+    if (mediaBlocked) return;
     try {
       const record = peers.get(data.sourceSocketId);
       if (!record) return;
@@ -372,6 +395,7 @@ function bindSocket(roomCode) {
     } catch (err) { console.warn('RTC answer error', err); }
   });
   socket.on('rtc-ice', async data => {
+    if (mediaBlocked) return;
     const record = peers.get(data.sourceSocketId);
     if (!record || !record.pc.remoteDescription) {
       if (!pendingIce.has(data.sourceSocketId)) pendingIce.set(data.sourceSocketId, []);
@@ -385,7 +409,6 @@ function bindSocket(roomCode) {
 async function enterRoom(mode) {
   setEntryError('');
   await checkUsageGuard(true);
-  if (serviceBlocked) return;
   const name = els.nameInput.value.trim().replace(/\s+/g, ' ').slice(0, 18);
   let code = els.roomInput.value.trim().toUpperCase();
   if (!name) return setEntryError('플레이어 이름을 입력해주세요.');
@@ -395,7 +418,6 @@ async function enterRoom(mode) {
   setEntryBusy(true);
   try {
     await loadConfig();
-    if (serviceBlocked) throw new Error(`TURN 월간 안전 한도(${turnUsage?.capGB || 800}GB)에 도달해 이번 달 서비스가 일시정지되었습니다.`);
     if (mode === 'create') {
       const res = await fetch(AVALON_BASE + '/api/rooms', {
         method: 'POST', headers: { 'content-type': 'application/json' },
@@ -452,7 +474,7 @@ function afterJoined() {
 async function syncParticipationRtc() {
   if (!currentState || !socket?.connected) return;
   const participant = isParticipant();
-  if (!participant) {
+  if (!participant || mediaBlocked) {
     clearRtcPeers();
     rtcRosterSignature = '';
     if (localStream) { for (const track of localStream.getTracks()) track.stop(); localStream = null; }
@@ -611,7 +633,6 @@ function section(title, text, body = '') {
 }
 function renderControls() {
   if (!currentState) return;
-  if (serviceBlocked) return;
   const phase = currentState.phase;
   if (phase !== 'lobby' && phase !== 'game_over' && !isParticipant()) return renderSpectatorView();
   if (phase === 'lobby') return renderLobby();
@@ -1119,13 +1140,13 @@ els.copyCodeBtn.addEventListener('click', async () => {
 els.voiceBtn.addEventListener('click', () => showToast('사회자 음성은 Yuna로 항상 켜져 있습니다.'));
 els.cameraBtn.addEventListener('click', () => {
   if (currentState && !isParticipant()) return showToast('관전자 모드에서는 카메라를 사용하지 않습니다.');
-  if (serviceBlocked) return showToast('월간 안전 한도로 서비스가 일시정지되었습니다.');
+  if (mediaBlocked) return showToast('음성·화상 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.');
   if (currentState?.coverFaces) return showToast('비밀 단계에서는 영상 송출이 자동으로 중지됩니다.');
   cameraEnabled = !cameraEnabled; applyLocalTrackState();
 });
 els.micBtn.addEventListener('click', () => {
   if (currentState && !isParticipant()) return showToast('관전자 모드에서는 마이크를 사용하지 않습니다.');
-  if (serviceBlocked) return showToast('월간 안전 한도로 서비스가 일시정지되었습니다.');
+  if (mediaBlocked) return showToast('음성·화상 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.');
   if (currentState?.autoSilence) return showToast('비밀 단계에서는 마이크가 자동 음소거됩니다.');
   micEnabled = !micEnabled; applyLocalTrackState();
 });

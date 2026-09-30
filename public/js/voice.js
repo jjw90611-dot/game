@@ -95,7 +95,7 @@ export function createVoice({ send, me, onChange, game = () => null, session = (
         cache: 'no-store', credentials: 'same-origin', headers: { 'x-game-session': session() }
       });
       const data = await r.json();
-      if (!r.ok || data.ok !== true || !Array.isArray(data.iceServers) || !data.iceServers.length) throw new Error(data.error || '관리자가 음성·화상 게임을 잠갔습니다. 잠금 해제 후 입장해 주세요.');
+      if (!r.ok || data.ok !== true || !Array.isArray(data.iceServers) || !data.iceServers.length) throw new Error(data.error || '음성 기능이 잠겨 있습니다. 게임은 계속 이용할 수 있습니다.');
       if (ticket !== generation) return;
       ice = data.iceServers;
       try {

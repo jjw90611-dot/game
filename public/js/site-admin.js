@@ -1,4 +1,4 @@
-// Main-site controls for the shared 23-game media gate.
+// Main-site controls for the shared voice/video feature gate.
 const BASE = '/avalon';
 const LOCK_LABEL = '음성·화상 잠금';
 
@@ -22,7 +22,7 @@ export function initSiteAdmin({
     button.setAttribute('aria-busy', String(busy));
     if (label) label.textContent = busy ? '잠금 중…' : LOCK_LABEL;
     if (adminLink) adminLink.title = state
-      ? (state.locked ? '음성·화상 잠금 상태 · 관리 페이지에서 해제' : '음성·화상 게임 열림 상태 · 잠금 및 관리')
+      ? (state.locked ? '음성·화상 기능 잠금 상태 · 게임은 이용 가능' : '음성·화상 기능 사용 가능 · 잠금 및 관리')
       : '잠금 관리자 로그인 및 잠금 관리';
   }
 
@@ -62,7 +62,7 @@ export function initSiteAdmin({
 
   async function lock() {
     if (destroyed || busy || !state?.admin || state?.locked) return;
-    if (!win.confirm('음성·화상 지원 게임 23개를 잠글까요?\n\n아발론과 음성 게임의 새 방·입장·TURN 발급을 차단합니다. 일반 음성 게임방은 종료되고 참가자는 로비로 나갑니다. 아발론도 잠금 확인 후 연결을 종료합니다.\n\n노래 맞히기와 초성 퀴즈는 계속 이용합니다. 이 브라우저의 관리자도 로그아웃합니다.')) return;
+    if (!win.confirm('음성·화상 기능을 잠글까요?\n\n게임 방 생성·입장·플레이는 그대로 사용할 수 있고, 음성·화상과 새 TURN 연결만 중지됩니다. 이미 음성에 참여 중인 사용자는 음성 연결만 종료됩니다.\n\n이 브라우저의 관리자도 로그아웃합니다.')) return;
     busy = true;
     ++version; // Ignore status responses started before this write.
     paint();
@@ -76,12 +76,12 @@ export function initSiteAdmin({
       try {
         await api('/api/admin/logout', { method: 'POST' });
         state = { ...state, admin: false };
-        notify('음성·화상 게임을 잠그고 관리자 로그아웃을 완료했어요.', 'good');
+        notify('음성·화상 기능을 잠그고 관리자 로그아웃을 완료했어요. 게임은 계속 이용할 수 있습니다.', 'good');
       } catch (_) {
-        notify('음성·화상 게임은 잠겼지만 로그아웃을 확인하지 못했어요. 잠금 관리에서 로그아웃을 다시 해 주세요.', 'err');
+        notify('음성·화상 기능은 잠겼지만 로그아웃을 확인하지 못했어요. 잠금 관리에서 로그아웃을 다시 해 주세요.', 'err');
       }
     } catch (error) {
-      notify(error?.message || '음성·화상 잠금에 실패했어요.', 'err');
+      notify(error?.message || '음성·화상 기능 잠금에 실패했어요.', 'err');
     } finally {
       busy = false;
       paint();
