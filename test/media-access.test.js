@@ -77,10 +77,10 @@ async function fixture(t) {
 
 const protectedIds = Object.keys(GAMES).filter(isMeteredGame);
 const voiceIds = protectedIds.filter(id => !GAMES[id].external);
-test('Catalog policy protects exactly 23 games; only song and chosung remain public', () => {
+test('Catalog policy protects exactly 23 games; voice-free games remain public', () => {
   assert.equal(protectedIds.length, 23);
   assert.equal(voiceIds.length, 22);
-  assert.deepEqual(Object.keys(GAMES).filter(id => !isMeteredGame(id)), ['song','chosung']);
+  assert.deepEqual(Object.keys(GAMES).filter(id => !isMeteredGame(id)), ['song','chosung','arcade']);
   for (const id of ['not-a-game', '__proto__', 'constructor', 'toString']) assert.equal(isMeteredGame(id), false);
 });
 
@@ -104,7 +104,7 @@ test('Every main game still allows create and quick-start while media is locked'
     assert.equal(u.socket.sent.at(-1).t, 'err');
   }
   const visitor=await f.user();
-  for (const game of ['song','chosung']) {
+  for (const game of ['song','chosung','arcade']) {
     await visitor.send({t:'create',game});
     assert.equal(f.hub.roomOf(visitor.uid)?.game,game);
   }
@@ -155,7 +155,7 @@ test('Guest cannot change common gate; cross-origin administrative writes are re
 
 test('Voice-off games reject forged voice and RTC messages on the server', async t => {
   const f=await fixture(t); await f.lockState(false); const a=await f.user(); const b=await f.user();
-  for (const game of ['song','chosung']) {
+  for (const game of ['song','chosung','arcade']) {
     await a.send({t:'create',game}); const room=f.hub.roomOf(a.uid);
     await b.send({t:'join',id:room.id}); await a.send({t:'voice',on:true,mic:true});
     assert.equal(!!room.members[a.uid].voice,false);

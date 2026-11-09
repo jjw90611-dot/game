@@ -4,6 +4,7 @@ export const SITE_NAME = '보드게임 모음집';
 
 // 사이트에 보이는 순서 (1순위 → 2순위 → 3순위)
 export const CATEGORIES = [
+  { id: 'arcade', name: '팀 아케이드', desc: '짧고 강렬한 순발력 팀 대결', games: ['arcade'] },
   { id: 'hot', name: '인기 게임', desc: '지금 가장 많이 하는 게임', games: ['liar', 'mafia', 'drawguess', 'rummy', 'yacht', 'omok'] },
   { id: 'rec', name: '추천 게임', desc: '여럿이 모이면 더 재밌는 게임', games: ['avalon', 'wordspy', 'onecard', 'numbercode', 'fruitbell', 'relay', 'reversi'] },
   { id: 'more', name: '전략 · 심리 게임', desc: '머리싸움과 블러핑의 진수', games: ['gems', 'werewolf', 'coup'] },
@@ -354,12 +355,37 @@ export const GAMES = {
       { key: 'time', label: '한 수 제한 시간', choices: timeChoices([15, 20, 30]), def: 20 },
     ],
   },
+  arcade: {
+    name: '팀 아케이드 25', en: 'TEAM ARCADE 25', cat: 'arcade', min: 2, max: 16, bots: true, time: '1분', isNew: true, hot: true, voice: 'off',
+    short: '한 방에서 고르는 25가지 초스피드 팀 대항 미니게임',
+    rules: [
+      '참가자 한 명이 한 팀을 대표해요. 방장은 25가지 미니게임 중 하나를 골라 시작해요.',
+      '연타·리듬·흔들기·순발력·두뇌·기억력 등 게임마다 화면 조작법이 달라요.',
+      '휴대폰의 흔들기 센서를 쓸 수 없는 환경에서는 화면 버튼으로도 똑같이 플레이할 수 있어요.',
+      '게임을 마치면 0~1000점으로 환산되고, 모든 팀의 결과가 실시간 순위표에 모여요.',
+      '가장 높은 점수를 받은 팀이 승리해요. 같은 방에서 설정을 바꿔 25종을 연달아 즐길 수 있어요.',
+    ],
+    options: [
+      { key: 'mode', label: '미니게임', choices: [
+        ['tap', '번개 탭 · 빠르게 연타'], ['rhythm', '리듬 펄스 · 박자 맞추기'], ['shake', '쉐이크 러시 · 폰 흔들기'],
+        ['swipe', '스와이프 스프린트 · 좌우 문지르기'], ['target', '팝 타겟 · 나타난 표적 터치'], ['rps', '순간 가위바위보 · 지시대로 선택'],
+        ['runner', '터보 러너 · 양발 번갈아 터치'], ['piano', '멜로디 스텝 · 건반 순서'], ['timestop', '타임 스톱 · 정확히 10초'],
+        ['gauge', '밸런스 게이지 · 목표 구간 유지'], ['reaction', '라이트닝 터치 · 반응 속도'], ['stack', '스택 타워 · 블록 쌓기'],
+        ['lines', '라인 클리어 · 줄 완성하기'], ['wires', '컬러 와이어 · 지시에 맞게 끊기'], ['dodge', '코스믹 닷지 · 장애물 피하기'],
+        ['parity', '홀짝 브레인 · 계산 결과 분류'], ['sorter', '스위치 분류 · 규칙대로 좌우 선택'], ['balloon', '컬러 트랩 · 목표 풍선만 터뜨리기'],
+        ['multiply', '곱셈 대시 · 구구단 스피드'], ['numbers', '넘버 헌트 · 1부터 순서대로'], ['memory', '네온 메모리 · 반짝인 순서 기억'],
+        ['safe', '시크릿 넘버 · 업다운 추리'], ['oddcolor', '틴트 헌터 · 다른 색 찾기'], ['initials', '첫소리 챌린지 · 초성 객관식'],
+        ['trivia', '퀴즈 스프린트 · 상식 객관식'],
+      ], def: 'tap' },
+      { key: 'duration', label: '최대 제한 시간', choices: [[45, '45초'], [60, '60초'], [90, '90초']], def: 60 },
+    ],
+  },
 };
 
 // 음성 채팅: rec = 음성으로 하면 더 재밌는 게임(입장 시 권유), off = 음성을 쓰지 않는 게임, 그 외 = 원하면 켤 수 있음
 export const voiceMode = (g) => GAMES[g]?.voice || 'on';
 
-export const GENRES = { party: '파티 · 추리', draw: '그림 · 단어', card: '카드 · 타일', board: '보드 · 주사위' };
+export const GENRES = { arcade: '팀 아케이드', party: '파티 · 추리', draw: '그림 · 단어', card: '카드 · 타일', board: '보드 · 주사위' };
 
 export const GAME_IDS = CATEGORIES.flatMap((c) => c.games);
 

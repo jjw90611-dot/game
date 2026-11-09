@@ -400,7 +400,7 @@ function bindHero() {
 }
 
 function renderHome() {
-  const popular = ['liar', 'mafia', 'avalon', 'song', 'drawguess', 'rummy', 'indian', 'yut'];
+  const popular = ['arcade', 'liar', 'mafia', 'avalon', 'song', 'drawguess', 'rummy', 'indian', 'yut'];
   const fresh = ['song', 'indian', 'yut', 'dice', 'rankwar', 'spotit', 'chosung', 'oneword'];
   $('#view').innerHTML = `
   <div class="home">

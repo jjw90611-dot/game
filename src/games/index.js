@@ -24,6 +24,7 @@ import chosung from './chosung.js';
 import oneword from './oneword.js';
 import connect4 from './connect4.js';
 import song from './song.js';
+import arcade from './arcade.js';
 
 export const MODULES = {
   // 1순위
@@ -34,4 +35,6 @@ export const MODULES = {
   gems, werewolf, coup,
   // 새로 나온 게임
   song, indian, yut, dice, rankwar, spotit, chosung, oneword, connect4,
+  // 팀 대항 미니게임 25종
+  arcade,
 };
