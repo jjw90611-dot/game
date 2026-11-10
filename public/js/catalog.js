@@ -2,9 +2,47 @@
 
 export const SITE_NAME = '보드게임 모음집';
 
+// 팀 아케이드 안에서 고를 수 있는 개별 게임 안내입니다.
+// 목록 화면, 상세 가이드, 대기실 옵션이 같은 정보를 사용하도록 한곳에서 관리해요.
+export const ARCADE_GAMES = [
+  { id: 'tap', name: '번개 탭', en: 'TAP RUSH', icon: '⚡', group: '스피드', time: '10초', desc: '제한 시간 동안 버튼을 누구보다 많이 두드리는 초고속 연타 대결', steps: ['카운트다운이 끝날 때까지 손을 떼고 기다려요.', '시작 신호가 나오면 중앙 버튼을 최대한 빠르게 연타해요.', '10초 동안 누른 횟수가 점수로 환산돼요.'] },
+  { id: 'rhythm', name: '리듬 펄스', en: 'RHYTHM PULSE', icon: '🎵', group: '리듬', time: '12초', desc: '움직이는 원이 중앙선에 닿는 순간을 노리는 박자 정확도 게임', steps: ['원이 좌우로 움직이는 박자 레인을 확인해요.', '원이 가운데 선에 닿는 순간 탭 버튼을 눌러요.', '18번의 타이밍이 정확할수록 높은 점수를 받아요.'] },
+  { id: 'shake', name: '쉐이크 러시', en: 'SHAKE RUSH', icon: '📱', group: '액션', time: '12초', desc: '휴대폰을 신나게 흔들어 횟수를 쌓는 온몸 액션 게임', steps: ['휴대폰을 단단히 잡고 흔들 준비를 해요.', '시작하면 좌우로 빠르고 크게 흔들어요.', '센서가 안 되면 화면의 흔들기 버튼을 연타해도 돼요.'] },
+  { id: 'swipe', name: '스와이프 스프린트', en: 'SWIPE SPRINT', icon: '↔️', group: '액션', time: '12초', desc: '패드의 양 끝을 빠르게 오가며 왕복 횟수를 겨루는 손가락 달리기', steps: ['패드 위에 손가락을 대고 누른 채 유지해요.', '왼쪽 끝과 오른쪽 끝을 번갈아 빠르게 문질러요.', '양 끝을 완전히 오갈 때마다 왕복 횟수가 올라가요.'] },
+  { id: 'target', name: '팝 타겟', en: 'POP TARGET', icon: '🎯', group: '스피드', time: '22초', desc: '화면 곳곳에 나타나는 별 표적을 놓치지 않고 잡는 순발력 게임', steps: ['게임판에 나타나는 별의 위치를 빠르게 찾아요.', '별이 사라지기 전에 정확히 터치해요.', '20개를 빨리 잡고 놓친 표적을 줄이면 고득점이에요.'] },
+  { id: 'rps', name: '순간 가위바위보', en: 'RPS FLASH', icon: '✊', group: '두뇌', time: '22초', desc: '제시된 손과 지시를 읽고 정답 손을 즉시 고르는 판단력 게임', steps: ['위에 나온 손과 “이길 손” 또는 “같은 손” 지시를 읽어요.', '가위·바위·보 중 조건에 맞는 답을 골라요.', '15문제를 빠르고 정확하게 풀수록 점수가 높아요.'] },
+  { id: 'runner', name: '터보 러너', en: 'TURBO RUNNER', icon: '🏃', group: '액션', time: '15초', desc: '왼발과 오른발 버튼을 번갈아 눌러 결승선까지 질주하는 게임', steps: ['왼발 버튼부터 시작해요.', '왼발과 오른발을 반드시 번갈아 빠르게 눌러요.', '15초 동안 쌓은 걸음 수로 순위를 정해요.'] },
+  { id: 'piano', name: '멜로디 스텝', en: 'MELODY STEP', icon: '🎹', group: '리듬', time: '24초', desc: '화면에 나온 음을 보고 같은 건반을 이어 누르는 리듬 기억 게임', steps: ['화면 위에 표시되는 도·레·미·솔 음을 확인해요.', '아래의 같은 이름 건반을 눌러 다음 음으로 넘어가요.', '틀리지 않고 30개 음을 완주하면 최고점이에요.'] },
+  { id: 'timestop', name: '타임 스톱', en: 'TIME STOP', icon: '⏱️', group: '감각', time: '10초', desc: '숫자가 사라진 뒤 감각만으로 정확히 10초를 맞히는 게임', steps: ['시작 버튼을 눌러 스톱워치를 출발시켜요.', '3초 뒤 숫자가 가려지면 마음속으로 시간을 세어요.', '정확히 10초라고 느낀 순간 멈추기를 눌러요.'] },
+  { id: 'gauge', name: '밸런스 게이지', en: 'BALANCE GAUGE', icon: '⚖️', group: '감각', time: '12초', desc: '누르고 떼는 힘 조절로 바늘을 초록 구간에 유지하는 게임', steps: ['버튼을 누르면 게이지가 올라가고 떼면 내려가요.', '바늘을 가운데 초록 구간으로 이동시켜요.', '12초 동안 초록 구간에 오래 머물수록 고득점이에요.'] },
+  { id: 'reaction', name: '라이트닝 터치', en: 'LIGHTNING TOUCH', icon: '💥', group: '스피드', time: '5회', desc: '기다리다가 신호가 켜지는 바로 그 순간을 잡는 반응 속도 게임', steps: ['“기다리세요” 화면에서는 누르지 않아요.', '버튼이 초록색으로 바뀌고 “지금!”이 뜨면 즉시 눌러요.', '5번의 평균 반응 속도가 빠를수록 점수가 높아요.'] },
+  { id: 'stack', name: '스택 타워', en: 'STACK TOWER', icon: '🏗️', group: '감각', time: '28초', desc: '좌우로 움직이는 블록을 맞춰 10층 타워를 쌓는 집중력 게임', steps: ['움직이는 블록이 아래 블록과 겹치는 순간을 기다려요.', '블록 놓기를 눌러 겹친 부분만 다음 층으로 남겨요.', '블록이 너무 어긋나기 전에 10층을 완성해요.'] },
+  { id: 'lines', name: '라인 클리어', en: 'LINE CLEAR', icon: '▦', group: '두뇌', time: '25초', desc: '빈 칸을 채워 가로와 세로 줄을 계속 완성하는 퍼즐 게임', steps: ['6×6 판에서 거의 완성된 가로·세로 줄을 찾아요.', '빈 칸을 눌러 불을 켜고 한 줄을 완성해요.', '줄이 지워진 뒤 새로 생긴 판에서 계속 이어가요.'] },
+  { id: 'wires', name: '컬러 와이어', en: 'COLOR WIRE', icon: '✂️', group: '두뇌', time: '24초', desc: '색과 번호 지시를 함께 읽고 올바른 전선을 끊는 정확도 게임', steps: ['위에 표시된 전선의 색과 번호를 모두 확인해요.', '아래 후보 중 두 조건이 모두 맞는 전선을 눌러요.', '12개 지시를 실수 없이 해결하면 최고점이에요.'] },
+  { id: 'dodge', name: '코스믹 닷지', en: 'COSMIC DODGE', icon: '🚀', group: '액션', time: '15초', desc: '우주선을 좌우로 움직여 쏟아지는 운석을 피하는 생존 게임', steps: ['게임판을 누른 채 좌우로 움직여 우주선을 조종해요.', '위에서 내려오는 운석의 경로를 미리 보고 피해요.', '15초 동안 충돌하지 않고 버티면 완주예요.'] },
+  { id: 'parity', name: '홀짝 브레인', en: 'ODD OR EVEN', icon: '🧮', group: '두뇌', time: '24초', desc: '짧은 계산식의 답이 홀수인지 짝수인지 빠르게 가르는 게임', steps: ['화면의 덧셈 또는 곱셈을 계산해요.', '결과가 홀수인지 짝수인지 버튼으로 골라요.', '18문제를 빠르고 정확하게 풀어요.'] },
+  { id: 'sorter', name: '스위치 분류', en: 'SWITCH SORT', icon: '🔀', group: '두뇌', time: '22초', desc: '단어가 생물인지 물건인지 규칙에 맞춰 좌우로 분류하는 게임', steps: ['화면에 나타난 단어를 읽어요.', '생물이면 왼쪽, 물건이면 오른쪽을 선택해요.', '16개 단어를 실수 없이 빠르게 분류해요.'] },
+  { id: 'balloon', name: '컬러 트랩', en: 'COLOR TRAP', icon: '🎈', group: '스피드', time: '16초', desc: '지정된 색 풍선만 터뜨리고 다른 색과 폭탄을 피하는 게임', steps: ['화면 위에서 이번 목표 색을 확인해요.', '떠오르는 풍선 중 목표 색만 빠르게 터뜨려요.', '다른 색 풍선과 폭탄을 누르면 감점돼요.'] },
+  { id: 'multiply', name: '곱셈 대시', en: 'MULTIPLY DASH', icon: '✖️', group: '두뇌', time: '24초', desc: '구구단 문제의 정답을 보기에서 골라 달리는 계산 스피드 게임', steps: ['화면에 나온 구구단 문제를 계산해요.', '네 개 보기 중 정답을 즉시 골라요.', '16문제를 많이 맞힐수록 높은 점수를 받아요.'] },
+  { id: 'numbers', name: '넘버 헌트', en: 'NUMBER HUNT', icon: '🔢', group: '집중', time: '35초', desc: '뒤섞인 숫자판에서 1부터 25까지 차례대로 찾는 시야 집중 게임', steps: ['5×5 판 전체에서 숫자 1을 먼저 찾아요.', '1, 2, 3 순서대로 25까지 누르세요.', '잘못 누르지 않고 빨리 끝낼수록 고득점이에요.'] },
+  { id: 'memory', name: '네온 메모리', en: 'NEON MEMORY', icon: '🧠', group: '기억', time: '45초', desc: '빛난 패드의 순서를 기억해 그대로 재현하는 단계형 기억 게임', steps: ['네 개 패드가 빛나는 순서를 눈으로 기억해요.', '불빛이 끝나면 같은 순서로 패드를 눌러요.', '단계마다 하나씩 길어지는 순서를 8단계까지 버텨요.'] },
+  { id: 'safe', name: '시크릿 넘버', en: 'SECRET NUMBER', icon: '🔐', group: '추리', time: '30초', desc: '업·다운 힌트로 1부터 100 사이 비밀번호를 찾아내는 추리 게임', steps: ['1~100 사이에서 예상 번호를 입력해요.', '더 높아요·더 낮아요 힌트로 범위를 좁혀요.', '최대 8번 안에 비밀번호를 찾으면 성공이에요.'] },
+  { id: 'oddcolor', name: '틴트 헌터', en: 'TINT HUNTER', icon: '🎨', group: '집중', time: '28초', desc: '비슷한 색 타일 사이에서 미묘하게 다른 한 칸을 찾는 게임', steps: ['격자 전체를 보고 색이 다른 한 칸을 찾아요.', '정답 칸을 누르면 격자가 커지고 색 차이가 줄어들어요.', '제한 시간 안에 10단계를 통과해요.'] },
+  { id: 'initials', name: '첫소리 챌린지', en: 'INITIAL QUIZ', icon: 'ㄱ', group: '두뇌', time: '25초', desc: '초성을 보고 세 보기 중 알맞은 단어를 고르는 언어 퀴즈', steps: ['화면에 크게 나온 초성을 읽어요.', '세 개 보기 중 초성과 정확히 맞는 단어를 골라요.', '12문제를 제한 시간 안에 해결해요.'] },
+  { id: 'trivia', name: '퀴즈 스프린트', en: 'TRIVIA SPRINT', icon: '💡', group: '상식', time: '28초', desc: '과학·역사·생활 상식 문제를 빠르게 푸는 객관식 퀴즈', steps: ['문제를 읽고 네 개 보기를 살펴봐요.', '정답이라고 생각하는 보기를 하나 골라요.', '14문제를 많이 맞힐수록 점수가 높아요.'] },
+];
+
+export const ARCADE_GAME_BY_ID = Object.fromEntries(ARCADE_GAMES.map((game) => [game.id, game]));
+
+export const ARCADE_PREFIX = 'arcade-';
+export const arcadeCatalogId = (modeId) => `${ARCADE_PREFIX}${modeId}`;
+export const arcadeModeId = (gameId) => String(gameId || '').startsWith(ARCADE_PREFIX) ? String(gameId).slice(ARCADE_PREFIX.length) : '';
+export const isArcadeCatalogGame = (gameId) => !!ARCADE_GAME_BY_ID[arcadeModeId(gameId)];
+export const ARCADE_GAME_IDS = ARCADE_GAMES.map((game) => arcadeCatalogId(game.id));
+
 // 사이트에 보이는 순서 (1순위 → 2순위 → 3순위)
 export const CATEGORIES = [
-  { id: 'arcade', name: '팀 아케이드', desc: '짧고 강렬한 순발력 팀 대결', games: ['arcade'] },
+  { id: 'arcade', name: '팀 아케이드', desc: '서로 다른 25개의 짧고 강렬한 게임', games: ARCADE_GAME_IDS },
   { id: 'hot', name: '인기 게임', desc: '지금 가장 많이 하는 게임', games: ['liar', 'mafia', 'drawguess', 'rummy', 'yacht', 'omok'] },
   { id: 'rec', name: '추천 게임', desc: '여럿이 모이면 더 재밌는 게임', games: ['avalon', 'wordspy', 'onecard', 'numbercode', 'fruitbell', 'relay', 'reversi'] },
   { id: 'more', name: '전략 · 심리 게임', desc: '머리싸움과 블러핑의 진수', games: ['gems', 'werewolf', 'coup'] },
@@ -12,6 +50,24 @@ export const CATEGORIES = [
 ];
 
 const timeChoices = (list) => list.map((s) => [s, s >= 60 && s % 60 === 0 ? `${s / 60}분` : `${s}초`]);
+
+const arcadeCatalogGames = Object.fromEntries(ARCADE_GAMES.map((game, index) => [arcadeCatalogId(game.id), {
+  name: game.name,
+  en: game.en,
+  cat: 'arcade',
+  min: 2,
+  max: 16,
+  bots: true,
+  time: game.time,
+  voice: 'off',
+  hot: index < 4,
+  isNew: index >= ARCADE_GAMES.length - 4,
+  short: game.desc,
+  rules: [...game.steps, '게임이 끝나면 기록을 0~1000점으로 환산해 같은 방 참가자와 순위를 정해요.'],
+  options: [],
+  serverGame: 'arcade',
+  arcadeMode: game.id,
+}]));
 
 export const GAMES = {
   liar: {
@@ -367,19 +423,12 @@ export const GAMES = {
     ],
     options: [
       { key: 'mode', label: '미니게임', choices: [
-        ['tap', '번개 탭 · 빠르게 연타'], ['rhythm', '리듬 펄스 · 박자 맞추기'], ['shake', '쉐이크 러시 · 폰 흔들기'],
-        ['swipe', '스와이프 스프린트 · 좌우 문지르기'], ['target', '팝 타겟 · 나타난 표적 터치'], ['rps', '순간 가위바위보 · 지시대로 선택'],
-        ['runner', '터보 러너 · 양발 번갈아 터치'], ['piano', '멜로디 스텝 · 건반 순서'], ['timestop', '타임 스톱 · 정확히 10초'],
-        ['gauge', '밸런스 게이지 · 목표 구간 유지'], ['reaction', '라이트닝 터치 · 반응 속도'], ['stack', '스택 타워 · 블록 쌓기'],
-        ['lines', '라인 클리어 · 줄 완성하기'], ['wires', '컬러 와이어 · 지시에 맞게 끊기'], ['dodge', '코스믹 닷지 · 장애물 피하기'],
-        ['parity', '홀짝 브레인 · 계산 결과 분류'], ['sorter', '스위치 분류 · 규칙대로 좌우 선택'], ['balloon', '컬러 트랩 · 목표 풍선만 터뜨리기'],
-        ['multiply', '곱셈 대시 · 구구단 스피드'], ['numbers', '넘버 헌트 · 1부터 순서대로'], ['memory', '네온 메모리 · 반짝인 순서 기억'],
-        ['safe', '시크릿 넘버 · 업다운 추리'], ['oddcolor', '틴트 헌터 · 다른 색 찾기'], ['initials', '첫소리 챌린지 · 초성 객관식'],
-        ['trivia', '퀴즈 스프린트 · 상식 객관식'],
+        ...ARCADE_GAMES.map((game) => [game.id, `${game.name} · ${game.group}`]),
       ], def: 'tap' },
       { key: 'duration', label: '최대 제한 시간', choices: [[45, '45초'], [60, '60초'], [90, '90초']], def: 60 },
     ],
   },
+  ...arcadeCatalogGames,
 };
 
 // 음성 채팅: rec = 음성으로 하면 더 재밌는 게임(입장 시 권유), off = 음성을 쓰지 않는 게임, 그 외 = 원하면 켤 수 있음

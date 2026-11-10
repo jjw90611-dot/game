@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import arcade, { ARCADE_MODES } from '../src/games/arcade.js';
+import { ARCADE_GAMES, ARCADE_GAME_BY_ID, ARCADE_GAME_IDS, CATEGORIES, GAMES, defaultOptions } from '../public/js/catalog.js';
 
 const players = [
   { id: 'a', name: '파랑 팀' },
@@ -13,6 +14,16 @@ test('팀 아케이드에 서로 다른 미니게임 25종이 등록되어 있�
   assert.equal(ARCADE_MODES.length, 25);
   assert.equal(new Set(ARCADE_MODES.map(([id]) => id)).size, 25);
   assert.equal(new Set(ARCADE_MODES.map(([, name]) => name)).size, 25);
+  assert.equal(ARCADE_GAMES.length, 25);
+  assert.deepEqual(ARCADE_GAMES.map(({ id }) => id), ARCADE_MODES.map(([id]) => id));
+  assert.ok(ARCADE_GAMES.every((game) => game.desc && game.steps.length === 3 && game.time && game.group));
+  assert.equal(ARCADE_GAME_BY_ID.tap.name, '번개 탭');
+  assert.equal(defaultOptions('arcade').mode, 'tap');
+  assert.equal(ARCADE_GAME_IDS.length, 25);
+  assert.deepEqual(CATEGORIES.find(({ id }) => id === 'arcade').games, ARCADE_GAME_IDS);
+  assert.ok(ARCADE_GAME_IDS.every((id) => GAMES[id]?.serverGame === 'arcade'));
+  assert.equal(new Set(ARCADE_GAME_IDS.map((id) => GAMES[id].arcadeMode)).size, 25);
+  assert.equal(GAMES['arcade-memory'].name, '네온 메모리');
 });
 
 test('각 팀의 점수를 모아 가장 높은 팀을 승자로 정한다', () => {

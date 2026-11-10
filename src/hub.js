@@ -39,6 +39,18 @@ function cleanName(s) {
   return n.length >= 1 ? n : '';
 }
 
+function optionOverrides(game, input) {
+  const out = {};
+  if (!input || typeof input !== 'object') return out;
+  for (const option of META[game]?.options || []) {
+    const value = input[option.key];
+    if (option.choices.some(([choice]) => choice === value)) out[option.key] = value;
+  }
+  return out;
+}
+
+const optionsMatch = (room, wanted) => Object.entries(wanted).every(([key, value]) => room.opts?.[key] === value);
+
 class UserError extends Error {
   constructor(msg) {
     super(msg);
@@ -338,7 +350,7 @@ export class Hub extends DurableObject {
       case 'lobby': return this.sendLobby(u);
       case 'create': return this.onCreate(u, m);
       case 'join': return this.onJoin(u, String(m.id ?? ''), !!m.watch);
-      case 'quick': return this.onQuick(u, String(m.game ?? ''));
+      case 'quick': return this.onQuick(u, String(m.game ?? ''), m.opts);
       case 'leave': return this.leaveRoom(u.uid, 'leave');
       case 'chat': return this.onChat(u, m.text);
       case 'start': return this.onStart(u);
@@ -376,10 +388,15 @@ export class Hub extends DurableObject {
     for (const r of this.rooms.values()) {
       const humans = Object.values(r.members).filter((m) => !m.bot).length;
       playing[r.game] = (playing[r.game] || 0) + humans;
+      if (r.game === 'arcade' && r.opts?.mode) {
+        const catalogId = `arcade-${r.opts.mode}`;
+        playing[catalogId] = (playing[catalogId] || 0) + humans;
+      }
       if (r.private) continue;
       rooms.push({
         id: r.id, no: r.no, game: r.game, title: r.title, status: r.status, seats: r.seats.length,
         max: META[r.game].max, members: Object.keys(r.members).length, host: r.members[r.host]?.name || '',
+        mode: r.game === 'arcade' ? r.opts?.mode : undefined,
       });
     }
     rooms.sort((a, b) => (a.status === b.status ? a.no - b.no : a.status === 'waiting' ? -1 : 1));
@@ -461,9 +478,10 @@ export class Hub extends DurableObject {
     if (this.rooms.size >= MAX_ROOMS) fail('방이 너무 많아요. 잠시 후 다시 시도해 주세요.');
     this.leaveRoom(u.uid, 'switch');
     const no = this.allocNo();
+    const initialOpts = { ...defaultOptions(game), ...optionOverrides(game, m.opts) };
     const room = {
       id: String(no), no, game, title: cleanText(m.title, 24) || rnd(TITLES), private: !!m.private,
-      host: u.uid, status: 'waiting', members: {}, seats: [], opts: defaultOptions(game), state: null,
+      host: u.uid, status: 'waiting', members: {}, seats: [], opts: initialOpts, state: null,
       result: null, created: Date.now(), chat: [], botSeq: 0, ver: 0,
     };
     this.rooms.set(room.id, room);
@@ -495,22 +513,23 @@ export class Hub extends DurableObject {
     this.sendRoomFull(u.uid, room);
   }
 
-  onQuick(u, game) {
+  onQuick(u, game, opts) {
     if (!Object.hasOwn(META, game) || !Object.hasOwn(MODULES, game)) fail('아직 준비 중인 게임이에요.');
+    const wanted = optionOverrides(game, opts);
     const cur = this.roomOf(u.uid);
-    if (cur && cur.game === game && cur.status === 'waiting') {
+    if (cur && cur.game === game && cur.status === 'waiting' && optionsMatch(cur, wanted)) {
       this.sendRoomFull(u.uid, cur);
       return;
     }
     const max = META[game].max;
     let best = null;
     for (const r of this.rooms.values()) {
-      if (r.game !== game || r.private || r.status !== 'waiting' || r.seats.length >= max) continue;
+      if (r.game !== game || !optionsMatch(r, wanted) || r.private || r.status !== 'waiting' || r.seats.length >= max) continue;
       if (!Object.values(r.members).some((m) => !m.bot && m.online)) continue;
       if (!best || r.seats.length > best.seats.length) best = r;
     }
     if (best) this.onJoin(u, best.id, false);
-    else this.onCreate(u, { game });
+    else this.onCreate(u, { game, opts: wanted });
   }
 
   fillSeats(room) {

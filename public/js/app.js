@@ -1,7 +1,7 @@
 // 보드게임 모음집 - 메인 화면 제어
 import { Net } from './net.js';
 import { $, $$, esc, avatar, toast, openModal, colorOf, beep } from './ui.js';
-import { CATEGORIES, GAMES, GENRES, voiceMode, isMeteredGame } from './catalog.js';
+import { ARCADE_GAMES, ARCADE_GAME_BY_ID, ARCADE_GAME_IDS, CATEGORIES, GAME_IDS, GAMES, GENRES, voiceMode, isMeteredGame } from './catalog.js';
 import { createVoice } from './voice.js';
 import { initSiteAdmin } from './site-admin.js';
 import { createMediaGate } from './media-gate.js';
@@ -176,7 +176,7 @@ function onRoom(m) {
 }
 
 function onLeft(why) {
-  const game_ = S.room?.game;
+  const game_ = S.room ? roomCatalogGame(S.room) : '';
   voice.leave();
   S.room = null;
   S.view = null;
@@ -256,7 +256,12 @@ function nameModal(first = false) {
 
 // ─── 공용 조각 ────────────────────────────────────────────
 const isExternal = (g) => !!GAMES[g]?.external;
-const isReady = (g) => isExternal(g) || !S.me || S.games.has(g);
+const serverGameId = (g) => GAMES[g]?.serverGame || g;
+const gameCreateOpts = (g) => GAMES[g]?.arcadeMode ? { mode: GAMES[g].arcadeMode } : {};
+const roomCatalogGame = (room) => room?.game === 'arcade' && room?.opts?.mode && GAMES[`arcade-${room.opts.mode}`] ? `arcade-${room.opts.mode}` : room?.game;
+const lobbyRoomCatalogGame = (room) => room?.game === 'arcade' && room?.mode && GAMES[`arcade-${room.mode}`] ? `arcade-${room.mode}` : room?.game;
+const roomMatchesGame = (room, gameId) => !gameId || lobbyRoomCatalogGame(room) === gameId || (!GAMES[gameId]?.arcadeMode && room.game === gameId);
+const isReady = (g) => isExternal(g) || !S.me || S.games.has(serverGameId(g));
 const genreOf = (g) => GENRES[GAMES[g].cat] || '';
 
 function badges(g) {
@@ -287,12 +292,14 @@ function secHead(title, sub, more) {
 }
 
 function roomCard(r) {
-  const meta = GAMES[r.game];
+  const catalogGame = lobbyRoomCatalogGame(r);
+  const meta = GAMES[catalogGame] || GAMES[r.game];
+  const arcadeMode = r.game === 'arcade' ? ARCADE_GAME_BY_ID[r.mode] : null;
   const playing = r.status === 'playing';
   return `<button type="button" class="rcard" data-room="${esc(r.id)}" data-status="${r.status}">
-    <span class="rc-thumb">${thumb(r.game)}<span class="rc-state ${playing ? 'play' : 'wait'}">${playing ? '게임 중' : '대기 중'}</span></span>
+    <span class="rc-thumb">${thumb(catalogGame)}<span class="rc-state ${playing ? 'play' : 'wait'}">${playing ? '게임 중' : '대기 중'}</span></span>
     <span class="rc-body">
-      <span class="rc-game">${esc(meta?.name || '')}<em>#${r.no}</em></span>
+      <span class="rc-game">${esc(arcadeMode?.name || meta?.name || '')}<em>${arcadeMode ? '팀 아케이드 · ' : ''}#${r.no}</em></span>
       <span class="rc-title">${esc(r.title)}</span>
       <span class="rc-foot"><span>${icon('crown')}${esc(r.host || '')}</span><b>${playing ? `${icon('eye')}${r.members}` : `${icon('users')}${r.seats}/${r.max}`}</b></span>
     </span>
@@ -329,6 +336,9 @@ function slideVisual(s) {
     const roles = ['percival', 'merlin', 'assassin', 'morgana'];
     return `<div class="s-bg s-bg-avalon"><img src="/avalon/assets/avalon-cover.png" alt="" decoding="async"></div>
       <div class="s-roles">${roles.map((r, i) => `<img class="role r${i}" src="/avalon/assets/roles/${r}.jpg" alt="" decoding="async">`).join('')}</div>`;
+  }
+  if (GAMES[s.id]?.arcadeMode) {
+    return `<div class="s-bg s-bg-arcade">${thumb(s.id, 's-blur')}${thumb(s.id, 's-main')}</div>`;
   }
   const src = thumbSrc(s.id);
   return `<div class="s-bg"><img class="s-blur" src="${src}" alt="" decoding="async"><img class="s-main" src="${src}" alt="" decoding="async"></div>`;
@@ -400,7 +410,7 @@ function bindHero() {
 }
 
 function renderHome() {
-  const popular = ['arcade', 'liar', 'mafia', 'avalon', 'song', 'drawguess', 'rummy', 'indian', 'yut'];
+  const popular = ['arcade-tap', 'liar', 'mafia', 'avalon', 'song', 'drawguess', 'rummy', 'indian', 'yut'];
   const fresh = ['song', 'indian', 'yut', 'dice', 'rankwar', 'spotit', 'chosung', 'oneword'];
   $('#view').innerHTML = `
   <div class="home">
@@ -410,6 +420,10 @@ function renderHome() {
       <section class="sec">
         ${secHead('인기 게임', '지금 가장 많이 플레이하는 게임', '#/games')}
         <div class="cards cards-rank">${popular.map((g, i) => gameCard(g, i + 1)).join('')}</div>
+      </section>
+      <section class="sec">
+        ${secHead('팀 아케이드', '25개 종목을 각각 골라 짧고 빠르게 대결해요', '#/games/arcade')}
+        <div class="cards">${ARCADE_GAME_IDS.slice(0, 8).map((g) => gameCard(g)).join('')}</div>
       </section>
       <section class="sec">
         <div class="sec-head"><div><h2>지금 열린 방 <span class="count" id="room-count"></span></h2><p>바로 들어가서 함께 플레이하세요</p></div>
@@ -423,7 +437,7 @@ function renderHome() {
       </section>
       <section class="sec">
         ${secHead('더 많은 게임', '추리 · 전략 · 순발력, 취향대로 골라 보세요', '#/games')}
-        <div class="cards">${CATEGORIES.flatMap((c) => c.games).filter((g) => !popular.includes(g) && !fresh.includes(g)).map((g) => gameCard(g)).join('')}</div>
+        <div class="cards">${CATEGORIES.flatMap((c) => c.games).filter((g) => GAMES[g].cat !== 'arcade' && !popular.includes(g) && !fresh.includes(g)).map((g) => gameCard(g)).join('')}</div>
       </section>
       <section class="sec">
         ${secHead('커뮤니티', '접속한 사람들과 자유롭게 이야기해요', '#/community')}
@@ -457,14 +471,17 @@ function bindJoinNo() {
 // ─── 전체 게임 ────────────────────────────────────────────
 function renderGames(genre) {
   const list = CATEGORIES.flatMap((c) => c.games).filter((g) => !genre || GAMES[g].cat === genre);
+  const arcade = genre === 'arcade';
   $('#view').innerHTML = `
-  ${pageHead('전체 게임', 'ALL GAMES', `${Object.keys(GAMES).length}개의 게임을 설치 없이 바로 플레이하세요.`)}
+  ${pageHead(arcade ? '팀 아케이드' : '전체 게임', arcade ? 'TEAM ARCADE' : 'ALL GAMES', arcade ? '25개 게임을 각각 살펴보고 원하는 종목으로 바로 시작하세요.' : `${GAME_IDS.length}개의 게임을 설치 없이 바로 플레이하세요.`)}
   <div class="wrap page-body">
     <div id="room-banner"></div>
     <div class="chips" role="tablist">
       <a class="chip ${genre ? '' : 'on'}" href="#/games">전체</a>
       ${Object.entries(GENRES).map(([k, v]) => `<a class="chip ${genre === k ? 'on' : ''}" href="#/games/${k}">${esc(v)}</a>`).join('')}
     </div>
+    ${arcade ? arcadeGuideBannerHTML() : ''}
+    ${arcade ? `<div class="ah-pick-head arcade-list-head"><div><span class="ah-kicker">CHOOSE YOUR GAME</span><h2>게임 25개를 하나씩 골라 보세요</h2><p>각 카드가 별도 게임이에요. 카드를 누르면 설명과 조작법, 해당 게임의 방만 확인할 수 있어요.</p></div><strong>25개</strong></div>` : ''}
     <div class="cards">${list.map((g) => gameCard(g)).join('')}</div>
   </div>`;
   refreshLive();
@@ -473,7 +490,7 @@ function renderGames(genre) {
 
 // ─── 열린 방 ──────────────────────────────────────────────
 function renderRooms() {
-  const games = Object.keys(GAMES).filter((g) => !isExternal(g));
+  const games = GAME_IDS.filter((g) => !isExternal(g));
   $('#view').innerHTML = `
   ${pageHead('열린 방', 'OPEN ROOMS', '대기 중인 방에 참가하거나, 진행 중인 게임을 관전할 수 있어요.')}
   <div class="wrap page-body">
@@ -502,7 +519,7 @@ function renderRooms() {
 function renderRoomList() {
   const box = $('#room-list');
   if (box) {
-    const rooms = S.lobby.rooms.filter((r) => !S.roomFilter || r.game === S.roomFilter);
+    const rooms = S.lobby.rooms.filter((r) => roomMatchesGame(r, S.roomFilter));
     box.innerHTML = rooms.length ? rooms.map(roomCard).join('')
       : `<div class="empty-box">${icon('door')}<b>아직 열린 방이 없어요</b><span>게임을 골라 첫 방을 만들어 보세요!</span>${S.roomFilter ? `<a class="btn dark sm" href="#/game/${S.roomFilter}">${esc(GAMES[S.roomFilter].name)} 방 만들기</a>` : '<a class="btn dark sm" href="#/games">게임 고르기</a>'}</div>`;
     bindRoomJoin(box);
@@ -630,9 +647,10 @@ function updateRoomBanner() {
     box.innerHTML = '';
     return;
   }
+  const catalogGame = roomCatalogGame(S.room);
   box.innerHTML = `<div class="room-banner">
-    <span class="rb-thumb">${thumb(S.room.game)}</span>
-    <div class="rb-main"><b>${esc(GAMES[S.room.game].name)}</b> <span class="muted small">#${S.room.no} ${esc(S.room.title)}</span><div class="small rb-sub">${S.room.status === 'playing' ? '게임이 진행 중이에요!' : '참여 중인 방이 있어요.'}</div></div>
+    <span class="rb-thumb">${thumb(catalogGame)}</span>
+    <div class="rb-main"><b>${esc(GAMES[catalogGame]?.name || GAMES[S.room.game].name)}</b> <span class="muted small">#${S.room.no} ${esc(S.room.title)}</span><div class="small rb-sub">${S.room.status === 'playing' ? '게임이 진행 중이에요!' : '참여 중인 방이 있어요.'}</div></div>
     <a class="btn primary sm" href="#/room/${S.room.id}">돌아가기</a><button class="btn sm" type="button" id="banner-leave">나가기</button></div>`;
   $('#banner-leave').onclick = () => send({ t: 'leave' });
 }
@@ -672,9 +690,152 @@ function bindGuide(root) {
   });
 }
 
+// ─── 팀 아케이드 전용 안내 ────────────────────────────────
+function arcadeModeGuideHTML(modeId) {
+  const mode = ARCADE_GAME_BY_ID[modeId] || ARCADE_GAMES[0];
+  return `<div class="am-modal">
+    <div class="am-modal-head"><span class="am-icon">${mode.icon}</span><div><span>${esc(mode.en)}</span><h3>${esc(mode.name)}</h3><p>${esc(mode.desc)}</p></div></div>
+    <div class="am-modal-meta"><span>${icon('clock')}${esc(mode.time)}</span><span>${icon('grid')}${esc(mode.group)}</span><span>${icon('trophy')}0~1000점</span></div>
+    <ol class="am-modal-steps">${mode.steps.map((step) => `<li>${esc(step)}</li>`).join('')}</ol>
+    <p class="am-modal-note">같은 방의 모든 참가자가 이 종목을 동시에 플레이하고, 기록을 0~1000점으로 환산해 순위를 정해요.</p>
+  </div>`;
+}
+
+function arcadeGuideBannerHTML() {
+  return `<section class="ah-guide arcade-catalog-guide" aria-labelledby="ah-guide-title">
+    <div class="ah-guide-copy">
+      <span class="ah-kicker">TEAM ARCADE GUIDE</span>
+      <h2 id="ah-guide-title">처음이라면 이것만 읽어보세요</h2>
+      <p>팀 아케이드는 하나의 복잡한 게임이 아니라, 짧게 즐기는 25개의 서로 다른 게임을 모아 둔 공간이에요.</p>
+      <div class="ah-steps">
+        <div><b>01</b><span><strong>게임 고르기</strong><small>아래의 독립된 게임 카드에서 설명과 조작법을 확인해요.</small></span></div>
+        <div><b>02</b><span><strong>상세 설명 보기</strong><small>카드를 누르면 그 게임만의 규칙과 열린 방이 나와요.</small></span></div>
+        <div><b>03</b><span><strong>같이 도전하기</strong><small>방장이 시작하면 모두 같은 종목을 각자 화면에서 플레이해요.</small></span></div>
+        <div><b>04</b><span><strong>점수로 승부</strong><small>기록은 0~1000점으로 바뀌고 실시간 순위표에 모여요.</small></span></div>
+      </div>
+    </div>
+    <aside class="ah-rulebox">
+      <span class="ah-rule-icon">🏆</span><h3>공통 규칙</h3>
+      <ul><li>카드 하나가 게임 하나를 뜻해요.</li><li>한 사람당 한 팀을 대표해요.</li><li>게임 중에는 모두 같은 종목을 플레이해요.</li><li>가장 높은 점수의 팀이 승리해요.</li></ul>
+      <p>휴대폰과 PC 모두 지원해요. 쉐이크 러시는 센서 대신 화면 버튼도 사용할 수 있어요.</p>
+    </aside>
+  </section>`;
+}
+
+function arcadeModeCard(mode, index) {
+  return `<article class="am-card" data-arcade-group="${esc(mode.group)}">
+    <div class="am-cover am-tone-${index % 8}">
+      <span class="am-no">${String(index + 1).padStart(2, '0')}</span>
+      <span class="am-cover-icon" aria-hidden="true">${mode.icon}</span>
+      <span class="am-cover-en">${esc(mode.en)}</span>
+    </div>
+    <div class="am-body">
+      <div class="am-title"><div><span>${esc(mode.group)}</span><h3>${esc(mode.name)}</h3></div><b>${esc(mode.time)}</b></div>
+      <p class="am-desc">${esc(mode.desc)}</p>
+      <div class="am-how"><b>게임 방법</b><ol>${mode.steps.map((step) => `<li>${esc(step)}</li>`).join('')}</ol></div>
+      <div class="am-actions"><button class="btn primary" type="button" data-arcade-create="${mode.id}">${icon('plus')}이 게임으로 방 만들기</button><button class="btn ghost" type="button" data-arcade-help="${mode.id}">${icon('help')}크게 보기</button></div>
+    </div>
+  </article>`;
+}
+
+function renderArcadePage() {
+  renderGames('arcade');
+  return;
+  const meta = GAMES.arcade;
+  const ready = isReady('arcade');
+  const groups = [...new Set(ARCADE_GAMES.map((game) => game.group))];
+  $('#view').innerHTML = `
+  <div class="gpage arcade-hub-page">
+    <section class="gp-hero arcade-hub-hero">
+      ${slideVisual({ id: 'arcade' })}
+      <div class="s-shade"></div>
+      <div class="wrap gp-copy">
+        <nav class="crumb"><a href="#/">홈</a>${icon('next')}<a href="#/games/arcade">팀 아케이드</a></nav>
+        <div class="g-badges static">${badges('arcade')}</div>
+        <h1>팀 아케이드</h1>
+        <span class="s-en">25 GAMES · ONE ROOM</span>
+        <p class="gp-short">게임을 하나씩 살펴보고 골라 보세요.<br>각 게임의 방법을 읽은 뒤 같은 방에서 동시에 도전해요.</p>
+        <div class="gp-meta"><span>${icon('users')}${playersText('arcade')}</span><span>${icon('grid')}개별 게임 25종</span><span>${icon('trophy')}실시간 점수 경쟁</span></div>
+        <div class="gp-actions">
+          <button class="btn cta lg" type="button" id="arcade-browse">${icon('grid')}25개 게임 보기</button>
+          ${ready ? `<button class="btn cta-ghost lg" type="button" data-arcade-create="tap">${icon('plus')}방 만들기</button>` : '<button class="btn cta-ghost lg" type="button" disabled>곧 열려요!</button>'}
+        </div>
+      </div>
+    </section>
+    <div class="wrap arcade-hub-body">
+      <div id="room-banner"></div>
+      <section class="ah-guide" aria-labelledby="ah-guide-title">
+        <div class="ah-guide-copy">
+          <span class="ah-kicker">TEAM ARCADE GUIDE</span>
+          <h2 id="ah-guide-title">처음이라면 이것만 읽어보세요</h2>
+          <p>팀 아케이드는 하나의 복잡한 게임이 아니라, 짧게 즐기는 25개의 서로 다른 게임을 모아 둔 공간이에요.</p>
+          <div class="ah-steps">
+            <div><b>01</b><span><strong>게임 고르기</strong><small>아래 카드에서 설명과 조작법을 읽고 한 종목을 골라요.</small></span></div>
+            <div><b>02</b><span><strong>방 만들기</strong><small>선택한 카드의 버튼으로 방을 만들고 친구를 초대해요.</small></span></div>
+            <div><b>03</b><span><strong>동시에 도전</strong><small>방장이 시작하면 모두 같은 게임을 각자 화면에서 플레이해요.</small></span></div>
+            <div><b>04</b><span><strong>점수로 승부</strong><small>기록은 0~1000점으로 바뀌고 실시간 순위표에 모여요.</small></span></div>
+          </div>
+        </div>
+        <aside class="ah-rulebox">
+          <span class="ah-rule-icon">🏆</span><h3>공통 규칙</h3>
+          <ul><li>한 사람당 한 팀을 대표해요.</li><li>게임 중에는 모두 같은 종목을 플레이해요.</li><li>가장 높은 점수의 팀이 승리해요.</li><li>한 판이 끝나면 방에서 다른 종목으로 바꿀 수 있어요.</li></ul>
+          <p>휴대폰과 PC 모두 지원해요. 쉐이크 러시는 센서 대신 화면 버튼도 사용할 수 있어요.</p>
+        </aside>
+      </section>
+
+      <section class="ah-pick" id="arcade-games" aria-labelledby="ah-pick-title">
+        <div class="ah-pick-head"><div><span class="ah-kicker">CHOOSE YOUR GAME</span><h2 id="ah-pick-title">게임 25개를 하나씩 골라 보세요</h2><p>카드마다 설명과 실제 조작 순서를 따로 적어 두었어요.</p></div><strong id="arcade-visible-count">25개</strong></div>
+        <div class="ah-filters" role="group" aria-label="팀 아케이드 게임 유형">
+          <button class="on" type="button" data-arcade-filter="">전체 25</button>
+          ${groups.map((group) => `<button type="button" data-arcade-filter="${esc(group)}">${esc(group)}</button>`).join('')}
+        </div>
+        <div class="am-grid">${ARCADE_GAMES.map(arcadeModeCard).join('')}</div>
+      </section>
+
+      <section class="ah-rooms panel"><div class="panel-head"><div><h3>지금 열린 팀 아케이드 방</h3><p class="small muted">친구가 기다리고 있다면 바로 참가할 수 있어요.</p></div><a class="more" href="#/rooms">모든 방 보기${icon('next')}</a></div><div class="room-list" id="gp-rooms" data-game="arcade"></div></section>
+    </div>
+  </div>`;
+
+  $('#arcade-browse').onclick = () => $('#arcade-games')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('.arcade-hub-page').onclick = (e) => {
+    const filter = e.target.closest('[data-arcade-filter]');
+    if (filter) {
+      const group = filter.dataset.arcadeFilter;
+      $$('.ah-filters button').forEach((button) => button.classList.toggle('on', button === filter));
+      let visible = 0;
+      $$('.am-card').forEach((card) => {
+        const show = !group || card.dataset.arcadeGroup === group;
+        card.hidden = !show;
+        if (show) visible++;
+      });
+      $('#arcade-visible-count').textContent = `${visible}개`;
+      return;
+    }
+    const help = e.target.closest('[data-arcade-help]');
+    if (help) {
+      const mode = ARCADE_GAME_BY_ID[help.dataset.arcadeHelp];
+      openModal({ title: `${mode?.name || '미니게임'} 게임 방법`, wide: true, body: arcadeModeGuideHTML(help.dataset.arcadeHelp) });
+      return;
+    }
+    const create = e.target.closest('[data-arcade-create]');
+    if (create && ready) {
+      const mode = ARCADE_GAME_BY_ID[create.dataset.arcadeCreate] || ARCADE_GAMES[0];
+      createRoomModal('arcade', { mode: mode.id }, mode.name);
+    }
+  };
+  renderGameRooms('arcade');
+  refreshLive();
+  updateRoomBanner();
+}
+
 // ─── 게임 소개 페이지 ─────────────────────────────────────
 function renderGamePage(g) {
+  if (g === 'arcade') {
+    renderArcadePage();
+    return;
+  }
   const meta = GAMES[g];
+  const arcadeMode = meta.arcadeMode ? ARCADE_GAME_BY_ID[meta.arcadeMode] : null;
   const ready = isReady(g);
   const ext = isExternal(g);
   const related = CATEGORIES.flatMap((c) => c.games).filter((x) => x !== g && GAMES[x].cat === meta.cat).slice(0, 4);
@@ -700,7 +861,7 @@ function renderGamePage(g) {
     </section>
     <div class="wrap gp-body">
       <div class="gp-main">
-        <div class="panel guide-panel"><div class="panel-head"><h3>게임 설명서</h3><span class="small muted">${esc(meta.name)} 완전 정복</span></div>${guideHTML(g)}</div>
+        <div class="panel guide-panel"><div class="panel-head"><h3>게임 설명서</h3><span class="small muted">${esc(meta.name)} 완전 정복</span></div>${arcadeMode ? arcadeModeGuideHTML(arcadeMode.id) : guideHTML(g)}</div>
       </div>
       <aside class="gp-side">
         <div class="panel info-table">
@@ -719,8 +880,8 @@ function renderGamePage(g) {
       if (n && d.open === false) n.innerHTML = `${icon('micoff')}음성·화상은 잠겨 있지만 게임은 이용할 수 있어요`;
     }).catch(() => {});
   } else if (ready) {
-    $('#quick').onclick = () => { S.expectRoom = true; send({ t: 'quick', game: g }); };
-    $('#create').onclick = () => createRoomModal(g);
+    $('#quick').onclick = () => { S.expectRoom = true; send({ t: 'quick', game: serverGameId(g), opts: gameCreateOpts(g) }); };
+    $('#create').onclick = () => createRoomModal(serverGameId(g), gameCreateOpts(g), arcadeMode?.name || '');
   }
   renderGameRooms(g);
   refreshLive();
@@ -731,19 +892,19 @@ function renderGamePage(g) {
 function renderGameRooms(g) {
   const box = $('#gp-rooms');
   if (!box) return;
-  const rooms = S.lobby.rooms.filter((r) => r.game === g);
+  const rooms = S.lobby.rooms.filter((r) => roomMatchesGame(r, g));
   box.innerHTML = rooms.length ? rooms.map(roomCard).join('') : '<div class="empty">아직 방이 없어요.<br>빠른 시작을 누르면 바로 방이 만들어져요!</div>';
   bindRoomJoin(box);
 }
 
-function createRoomModal(g) {
+function createRoomModal(g, initialOpts = {}, modeName = '') {
   openModal({
-    title: `${GAMES[g].name} 방 만들기`,
-    body: `<div class="field"><label>방 제목</label><input class="input" id="rt" maxlength="24" placeholder="예) 초보 환영해요" autocomplete="off"></div>
+    title: `${modeName || GAMES[g].name} 방 만들기`,
+    body: `${modeName ? `<div class="create-mode"><span>${ARCADE_GAME_BY_ID[initialOpts.mode]?.icon || '🎮'}</span><div><small>선택한 팀 아케이드 게임</small><b>${esc(modeName)}</b></div></div>` : ''}<div class="field"><label>방 제목</label><input class="input" id="rt" maxlength="24" placeholder="예) 초보 환영해요" autocomplete="off"></div>
       <label class="check"><input type="checkbox" id="rp"> 비공개 방 (초대 링크로만 들어올 수 있어요)</label>`,
     actions: [{ label: '만들기', cls: 'primary', onClick: (close, el) => {
       S.expectRoom = true;
-      send({ t: 'create', game: g, title: $('#rt', el).value, private: $('#rp', el).checked });
+      send({ t: 'create', game: g, title: $('#rt', el).value, private: $('#rp', el).checked, opts: initialOpts });
     } }],
     onOpen: (el) => {
       const inp = $('#rt', el);
@@ -754,6 +915,12 @@ function createRoomModal(g) {
 }
 
 function rulesModal(g) {
+  if (g === 'arcade') {
+    const mode = S.room?.game === 'arcade' ? S.room.opts?.mode : 'tap';
+    const info = ARCADE_GAME_BY_ID[mode] || ARCADE_GAMES[0];
+    openModal({ title: `${info.name} 게임 방법`, wide: true, body: arcadeModeGuideHTML(info.id) });
+    return;
+  }
   openModal({ title: `${GAMES[g].name} 설명서`, wide: true, body: guideHTML(g, true) });
 }
 
@@ -769,14 +936,16 @@ function renderRoom() {
   const r = S.room;
   if (!r) return;
   const meta = GAMES[r.game];
+  const catalogGame = roomCatalogGame(r);
+  const roomGameName = r.game === 'arcade' && ARCADE_GAME_BY_ID[r.opts?.mode] ? `${ARCADE_GAME_BY_ID[r.opts.mode].name} · 팀 아케이드` : meta.name;
   unmountGame();
   const chatMin = window.innerWidth <= 980 && !isChatHeavy(r.game);
   $('#view').innerHTML = `
   <div class="room ${chatMin ? 'chat-min' : ''}" data-id="${esc(r.id)}" data-game="${r.game}">
     <div class="room-top">
       <button class="back" type="button" id="room-back" title="게임 목록">${icon('back')}</button>
-      <div class="room-title"><span class="ricon">${thumb(r.game)}</span>
-        <div class="rt-main"><div class="rt-game">${esc(meta.name)}</div><div class="rt-sub" id="rt-sub"></div></div></div>
+      <div class="room-title"><span class="ricon">${thumb(catalogGame)}</span>
+        <div class="rt-main"><div class="rt-game" id="rt-game">${esc(roomGameName)}</div><div class="rt-sub" id="rt-sub"></div></div></div>
       <div class="voice-ctl" id="voice-ctl"></div>
       <div class="timer-chip" id="timer-chip" hidden>${icon('clock')}<span></span></div>
       <div class="room-actions">
@@ -806,7 +975,7 @@ function renderRoom() {
       </aside>
     </div>
   </div>`;
-  $('#room-back').onclick = () => { location.hash = `#/game/${r.game}`; };
+  $('#room-back').onclick = () => { location.hash = `#/game/${catalogGame}`; };
   $('#btn-leave').onclick = () => {
     if (S.room?.status === 'playing' && S.room.seats.includes(S.me.uid) && S.view?.players?.some((p) => p.id === S.me.uid)) {
       openModal({ title: '게임을 나갈까요?', body: '<p>게임 중에 나가면 다시 들어올 수 없어요.</p>', actions: [{ label: '계속하기' }, { label: '나가기', cls: 'bad', onClick: () => send({ t: 'leave' }) }] });
@@ -902,7 +1071,7 @@ function renderVoice() {
 
 function invite() {
   const url = `${location.origin}/#/room/${S.room.id}`;
-  const text = `[보드게임 모음집] ${GAMES[S.room.game].name} 같이 해요! (방 번호 ${S.room.no})`;
+  const text = `[보드게임 모음집] ${GAMES[roomCatalogGame(S.room)]?.name || GAMES[S.room.game].name} 같이 해요! (방 번호 ${S.room.no})`;
   if (navigator.share && window.innerWidth <= 980) {
     navigator.share({ title: '보드게임 모음집', text, url }).catch(() => {});
     return;
@@ -916,6 +1085,9 @@ function invite() {
 function updateRoom() {
   const r = S.room;
   if (!r || !$('.room')) return;
+  const arcadeMode = r.game === 'arcade' ? ARCADE_GAME_BY_ID[r.opts?.mode] : null;
+  const rtGame = $('#rt-game');
+  if (rtGame) rtGame.textContent = arcadeMode ? `${arcadeMode.name} · 팀 아케이드` : GAMES[r.game].name;
   $('#rt-sub').textContent = `#${r.no} · ${r.title}${r.private ? ' · 비공개' : ''}`;
   renderMembers();
   renderStage();
@@ -1082,6 +1254,7 @@ function unmountGame() {
 function renderWaiting() {
   const r = S.room;
   const meta = GAMES[r.game];
+  const arcadeMode = r.game === 'arcade' ? ARCADE_GAME_BY_ID[r.opts?.mode] : null;
   const root = $('#game-root');
   if (!root) return;
   root.className = 'game-root';
@@ -1103,10 +1276,11 @@ function renderWaiting() {
     }
   }
   const need = Math.max(0, meta.min - seats.length);
-  const opts = meta.options || [];
+  const opts = (meta.options || []).filter((option) => !(r.game === 'arcade' && option.key === 'mode'));
   root.innerHTML = `<div class="waiting">
     ${r.result ? `<div class="result-card"><div class="res-t">${icon('trophy')}<span>${esc(r.result.text)}</span></div><div class="res-w">한 판 더 하려면 방장이 게임을 시작하면 돼요!</div></div>` : ''}
-    <div class="wait-head"><h2>${esc(meta.name)} 대기실</h2><p>${playersText(r.game)} · ${need ? `<b style="color:var(--accent)">${need}명 더</b> 모이면 시작할 수 있어요` : '모두 모였어요! 준비되면 시작하세요'}</p></div>
+    <div class="wait-head">${arcadeMode ? '<span class="wait-kicker">TEAM ARCADE · 선택한 게임</span>' : ''}<h2>${arcadeMode ? `${arcadeMode.icon} ${esc(arcadeMode.name)}` : esc(meta.name)} 대기실</h2><p>${playersText(r.game)} · ${need ? `<b style="color:var(--accent)">${need}명 더</b> 모이면 시작할 수 있어요` : '모두 모였어요! 준비되면 시작하세요'}</p></div>
+    ${arcadeMode ? `<div class="wait-mode-guide"><span>${arcadeMode.icon}</span><div><b>${esc(arcadeMode.desc)}</b><p>${esc(arcadeMode.steps.join(' → '))}</p></div><button class="btn sm" type="button" data-mode-help>${icon('help')}게임 방법</button></div>` : ''}
     ${voiceMode(r.game) === 'rec' && !voice.active ? (S.mediaAccess?.open === false ? `<div class="voice-invite"><span class="vi-ico">${icon('micoff')}</span><div><b>음성 기능이 잠겨 있어요</b><small>게임은 그대로 이용할 수 있습니다. 관리자가 잠금을 해제하면 음성 참여 버튼이 다시 열립니다.</small></div></div>` : `<div class="voice-invite"><span class="vi-ico">${icon('headset')}</span><div><b>이 게임은 음성으로 하면 훨씬 재밌어요!</b><small>마이크를 켜고 목소리로 대화하며 추리해 보세요. (이어폰 사용을 추천해요)</small></div><button class="btn primary" type="button" data-voice-join>${icon('mic')}음성 참여</button></div>`) : ''}
     <div class="seats">${slots.join('')}</div>
     ${opts.length ? `<div class="panel"><div class="panel-head"><h3>게임 설정</h3>${isHost ? '' : '<span class="small muted">방장만 바꿀 수 있어요</span>'}</div><div class="opts">
@@ -1125,6 +1299,7 @@ function renderWaiting() {
     ${meta.bots && seats.length < meta.min + 1 ? '<p class="wait-note">혼자라면 봇을 추가해서 바로 연습할 수 있어요!</p>' : ''}
   </div>`;
   root.onclick = (e) => {
+    if (e.target.closest('[data-mode-help]')) rulesModal(r.game);
     if (e.target.closest('[data-voice-join]')) joinVoice();
     const b = e.target.closest('[data-bot]');
     if (b) send({ t: 'bot', add: b.dataset.bot === '1' });

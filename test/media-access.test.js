@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { GAMES, isMeteredGame } from '../public/js/catalog.js';
+import { ARCADE_GAME_IDS, GAMES, isMeteredGame } from '../public/js/catalog.js';
 
 const root = new URL('../', import.meta.url);
 const dataUrl = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
@@ -80,7 +80,7 @@ const voiceIds = protectedIds.filter(id => !GAMES[id].external);
 test('Catalog policy protects exactly 23 games; voice-free games remain public', () => {
   assert.equal(protectedIds.length, 23);
   assert.equal(voiceIds.length, 22);
-  assert.deepEqual(Object.keys(GAMES).filter(id => !isMeteredGame(id)), ['song','chosung','arcade']);
+  assert.deepEqual(Object.keys(GAMES).filter(id => !isMeteredGame(id)), ['song','chosung','arcade', ...ARCADE_GAME_IDS]);
   for (const id of ['not-a-game', '__proto__', 'constructor', 'toString']) assert.equal(isMeteredGame(id), false);
 });
 
@@ -108,6 +108,21 @@ test('Every main game still allows create and quick-start while media is locked'
     await visitor.send({t:'create',game});
     assert.equal(f.hub.roomOf(visitor.uid)?.game,game);
   }
+});
+
+test('Team Arcade quick-start only joins a room for the selected independent game', async t => {
+  const f = await fixture(t);
+  const tap = await f.user();
+  const memory = await f.user();
+  const memoryJoiner = await f.user();
+  await tap.send({t:'create', game:'arcade', opts:{mode:'tap'}});
+  await memory.send({t:'quick', game:'arcade', opts:{mode:'memory'}});
+  const memoryRoom = f.hub.roomOf(memory.uid);
+  assert.equal(f.hub.roomOf(tap.uid).opts.mode, 'tap');
+  assert.equal(memoryRoom.opts.mode, 'memory');
+  assert.notEqual(memoryRoom.id, f.hub.roomOf(tap.uid).id);
+  await memoryJoiner.send({t:'quick', game:'arcade', opts:{mode:'memory'}});
+  assert.equal(f.hub.roomOf(memoryJoiner.uid).id, memoryRoom.id);
 });
 
 test('Unlocked policy admits each of the 22 main voice games', async t => {
